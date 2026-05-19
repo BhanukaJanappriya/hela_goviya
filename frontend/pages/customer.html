@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Customer Dashboard — Hela Goviya</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+<div class="dashboard-layout">
+  <div id="sidebarContainer"></div>
+
+  <div class="main-content">
+    <div id="topbarContainer"></div>
+    <div id="notifPanelContainer"></div>
+
+    <div class="page-content page-enter" id="pageContent">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Cart Modal -->
+<div class="modal-overlay" id="cartModal">
+  <div class="modal">
+    <div class="modal-head"><h3>🛒 Your Cart</h3><button class="modal-close" onclick="closeModal('cartModal')">✕</button></div>
+    <div class="modal-body" id="cartBody"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- Order Tracker Modal -->
+<div class="modal-overlay" id="trackModal">
+  <div class="modal">
+    <div class="modal-head"><h3>📦 Order Tracking</h3><button class="modal-close" onclick="closeModal('trackModal')">✕</button></div>
+    <div class="modal-body" id="trackBody"></div>
+  </div>
+</div>
+
+<!-- Product Detail Modal -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head"><h3 id="productModalTitle">Product Details</h3><button class="modal-close" onclick="closeModal('productModal')">✕</button></div>
+    <div class="modal-body" id="productModalBody"></div>
+  </div>
+</div>
+
+<!-- Checkout Modal -->
+<div class="modal-overlay" id="checkoutModal">
+  <div class="modal">
+    <div class="modal-head"><h3>✅ Checkout</h3><button class="modal-close" onclick="closeModal('checkoutModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Delivery Address</label><textarea id="checkoutAddress" class="form-control" rows="2" placeholder="Your full delivery address"></textarea></div>
+      <div class="form-group"><label class="form-label">Payment Method</label>
+        <select id="payMethod" class="form-control"><option value="cod">Cash on Delivery</option><option value="card">Card Payment</option><option value="online">Online Transfer</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Special Instructions (optional)</label><input type="text" id="orderNotes" class="form-control" placeholder="Any notes for the seller"></div>
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;font-size:.875rem">
+        <input type="checkbox" id="isUrgent"> <span>🚨 Mark as urgent (priority delivery)</span>
+      </label>
+      <div id="checkoutSummary" style="background:var(--g50);border-radius:var(--r);padding:12px;margin-bottom:16px;font-size:.875rem"></div>
+      <button class="btn btn-primary btn-full btn-lg" onclick="placeOrder()">Place Order</button>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/api.js"></script>
+<script>
+const user = Auth.requireAuth(['customer']);
+if (!user) throw new Error('Not authorized');
+
+let currentView  = 'shop';
+let allProducts  = [];
+let cartCount    = 0;
+
+// ── Build layout ──────────────────────────────────────────────────────────
+document.getElementById('sidebarContainer').innerHTML = UI.buildSidebar('customer', user, [
+  { icon:'🏠', label:'Home / Shop',    active: true,  fn:"switchView('shop')"    },
+  { icon:'🛒', label:'My Cart',        badge:cartCount, fn:"openCart()"           },
+  { icon:'📦', label:'My Orders',      fn:"switchView('orders')"  },
+  { icon:'👤', label:'My Profile',     fn:"switchView('profile')" },
+]);
+document.getElementById('topbarContainer').innerHTML = UI.buildTopbar('Shop', true);
+document.getElementById('notifPanelContainer').innerHTML = UI.buildNotifPanel();
+
+UI.initSidebar();
+UI.initNotifPanel();
+updateCartBadge();
+
+// ── Views ─────────────────────────────────────────────────────────────────
+async function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pc = document.getElementById('pageContent');
+  pc.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  if (view === 'shop')    await renderShop();
+  if (view === 'orders')  await renderOrders();
+  if (view === 'profile') await renderProfile();
+}
+
+// ── SHOP ──────────────────────────────────────────────────────────────────
+async function renderShop(search='', category='', organic='') {
+  const [prodsRes, catsRes] = await Promise.all([
+    api.get(`/products?search=${encodeURIComponent(search)}&category=${category}&organic=${organic}&limit=40`),
+    api.get('/categories')
+  ]);
+  allProducts = prodsRes?.data || [];
+  const cats  = catsRes?.data  || [];
+  const pc    = document.getElementById('pageContent');
+  pc.innerHTML = `
+    <div style="margin-bottom:20px">
+      <h2>🌿 Fresh Products</h2>
+      <p style="color:var(--gray500);font-size:.875rem;margin-top:4px">Direct from Sri Lanka's farms</p>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-chip ${!category?'active':''}" onclick="renderShop('','','')">All</span>
+      ${cats.map(c=>`<span class="filter-chip ${category===c.slug?'active':''}" onclick="renderShop('','${c.slug}','')"> ${c.icon} ${c.name}</span>`).join('')}
+      <span class="filter-chip ${organic?'active':''}" onclick="renderShop('','','${organic?'':'1'}')">🌿 Organic Only</span>
+    </div>
+    <div class="product-grid" id="productGrid">
+      ${allProducts.length ? allProducts.map(p => renderProductCard(p)).join('') :
+        '<div class="empty-state"><div class="empty-icon">🌿</div><p>No products found</p></div>'}
+    </div>`;
+}
+
+function renderProductCard(p) {
+  const disc = p.original_price > p.price ? Math.round((1-p.price/p.original_price)*100) : 0;
+  return `
+    <div class="product-card" onclick="viewProduct('${p.id}')">
+      <div class="product-img">
+        ${p.is_organic ? '<span class="organic-tag">🌿 Organic</span>' : ''}
+        ${disc > 0 ? `<span class="discount-tag">-${disc}%</span>` : ''}
+        <span>${UI.catEmoji(p.category_name?.toLowerCase())}</span>
+      </div>
+      <div class="product-info">
+        <div class="product-cat">${p.category_icon||'🌿'} ${p.category_name||''}</div>
+        <div class="product-name">${p.name}</div>
+        <div class="price-row">
+          <span class="price-current">${UI.currency(p.price)}</span>
+          ${p.original_price > p.price ? `<span class="price-original">${UI.currency(p.original_price)}</span>` : ''}
+          <span class="price-unit">/ ${p.unit}</span>
+        </div>
+      </div>
+      <div class="product-actions">
+        <button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();addToCart('${p.id}','${p.name}')">+ Cart</button>
+      </div>
+    </div>`;
+}
+
+async function viewProduct(id) {
+  const res = await api.get(`/products/${id}`);
+  if (!res?.data) return;
+  const p   = res.data;
+  document.getElementById('productModalTitle').textContent = p.name;
+  const disc = p.original_price > p.price ? Math.round((1-p.price/p.original_price)*100) : 0;
+  document.getElementById('productModalBody').innerHTML = `
+    <div style="background:linear-gradient(135deg,var(--g100),var(--g200));border-radius:12px;height:140px;display:flex;align-items:center;justify-content:center;font-size:4rem;margin-bottom:16px">${UI.catEmoji(p.category_name?.toLowerCase())}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      ${p.is_organic ? '<span class="badge badge-green">🌿 Organic</span>' : ''}
+      ${disc>0 ? `<span class="badge badge-yellow">-${disc}% OFF</span>` : ''}
+      <span class="badge badge-gray">${p.category_icon||'🌿'} ${p.category_name}</span>
+    </div>
+    <p style="font-size:.875rem;color:var(--gray600);margin-bottom:14px;line-height:1.6">${p.description||'Fresh quality product.'}</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div><span style="font-size:1.4rem;font-weight:700;color:var(--g700)">${UI.currency(p.price)}</span> <span style="color:var(--gray400);font-size:.83rem">/ ${p.unit}</span></div>
+      <span style="font-size:.83rem;color:var(--gray500)">Stock: ${p.stock} ${p.unit}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <label style="font-size:.83rem;font-weight:500">Qty:</label>
+      <input type="number" id="qtyInput" value="1" min="1" max="${p.stock}" class="form-control" style="width:80px">
+    </div>
+    <button class="btn btn-primary btn-full btn-lg" onclick="addToCartQty('${p.id}','${p.name}')">🛒 Add to Cart</button>
+    ${p.reviews?.length ? `
+      <div style="margin-top:18px;border-top:1px solid var(--gray100);padding-top:14px">
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:10px">Customer Reviews</div>
+        ${p.reviews.slice(0,3).map(r=>`
+          <div style="border-bottom:1px solid var(--gray100);padding:8px 0">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.82rem;font-weight:500">${r.customer_name}</span>
+              <span style="color:var(--earth500)">★${r.rating}</span>
+            </div>
+            <p style="font-size:.8rem;color:var(--gray500);margin-top:3px">${r.comment||''}</p>
+          </div>`).join('')}
+      </div>` : ''}`;
+  openModal('productModal');
+}
+
+async function addToCartQty(id, name) {
+  const qty = parseInt(document.getElementById('qtyInput')?.value) || 1;
+  await addToCart(id, name, qty);
+  closeModal('productModal');
+}
+
+// ── CART ──────────────────────────────────────────────────────────────────
+async function openCart() {
+  const res = await api.get('/cart');
+  const { items=[], total=0 } = res?.data || {};
+  const body = document.getElementById('cartBody');
+  if (!items.length) {
+    body.innerHTML = '<div class="empty-state"><div class="empty-icon">🛒</div><p>Your cart is empty</p></div>';
+  } else {
+    body.innerHTML = `
+      ${items.map(item=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray100)">
+          <div style="width:44px;height:44px;background:var(--g100);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">🌿</div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:.875rem">${item.name}</div>
+            <div style="font-size:.78rem;color:var(--gray500)">${UI.currency(item.price)} / ${item.unit}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="updateQty('${item.id}',${item.quantity-1})">−</button>
+            <span style="min-width:20px;text-align:center;font-weight:600">${item.quantity}</span>
+            <button class="btn btn-ghost btn-sm" onclick="updateQty('${item.id}',${item.quantity+1})">+</button>
+          </div>
+          <div style="font-weight:700;color:var(--g700);min-width:80px;text-align:right">${UI.currency(item.subtotal)}</div>
+          <button class="btn btn-danger btn-sm" onclick="removeFromCart('${item.id}')">✕</button>
+        </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px">
+        <div><div style="font-size:.8rem;color:var(--gray500)">Subtotal</div><div style="font-size:1.3rem;font-weight:700;color:var(--g700)">${UI.currency(total)}</div></div>
+        <div style="text-align:right;font-size:.78rem;color:var(--gray500)">+ Rs. 150 delivery fee<br>(Free over Rs. 2000)</div>
+      </div>
+      <button class="btn btn-primary btn-full btn-lg" style="margin-top:14px" onclick="openCheckout()">Proceed to Checkout →</button>`;
+  }
+  openModal('cartModal');
+}
+
+async function addToCart(id, name, qty=1) {
+  const res = await api.post('/cart', { product_id:id, quantity:qty });
+  if (res?.success) { Toast.show(`${name} added to cart!`, 'success'); updateCartBadge(); }
+  else Toast.show(res?.message||'Failed to add', 'error');
+}
+
+async function updateQty(cartId, qty) {
+  await api.put(`/cart/${cartId}`, { quantity:qty });
+  openCart();
+  updateCartBadge();
+}
+
+async function removeFromCart(cartId) {
+  await api.delete(`/cart/${cartId}`);
+  openCart();
+  updateCartBadge();
+}
+
+async function updateCartBadge() {
+  const res = await api.get('/cart');
+  cartCount  = res?.data?.count || 0;
+  const nav  = document.querySelector('.sidebar-nav');
+  if (nav) {
+    const badges = nav.querySelectorAll('.nav-badge');
+    if (badges[0]) badges[0].textContent = cartCount;
+  }
+}
+
+// ── CHECKOUT ──────────────────────────────────────────────────────────────
+async function openCheckout() {
+  closeModal('cartModal');
+  const cartRes = await api.get('/cart');
+  const { items=[], total=0 } = cartRes?.data || {};
+  const fee  = total > 2000 ? 0 : 150;
+  document.getElementById('checkoutAddress').value = user.address || '';
+  document.getElementById('checkoutSummary').innerHTML = `
+    <div style="font-weight:600;margin-bottom:8px">Order Summary</div>
+    ${items.map(i=>`<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>${i.name} ×${i.quantity}</span><span>${UI.currency(i.subtotal)}</span></div>`).join('')}
+    <hr style="border:none;border-top:1px solid var(--gray200);margin:8px 0">
+    <div style="display:flex;justify-content:space-between"><span>Delivery</span><span>${fee===0?'FREE':UI.currency(fee)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-weight:700;color:var(--g700);margin-top:4px"><span>Total</span><span>${UI.currency(total+fee)}</span></div>`;
+  openModal('checkoutModal');
+}
+
+async function placeOrder() {
+  const cartRes = await api.get('/cart');
+  const items   = cartRes?.data?.items || [];
+  if (!items.length) { Toast.show('Your cart is empty', 'error'); return; }
+  const address = document.getElementById('checkoutAddress').value.trim();
+  if (!address)  { Toast.show('Please enter delivery address', 'warning'); return; }
+  const body = {
+    items:            items.map(i=>({ product_id:i.product_id, quantity:i.quantity })),
+    delivery_address: address,
+    payment_method:   document.getElementById('payMethod').value,
+    is_urgent:        document.getElementById('isUrgent').checked,
+    notes:            document.getElementById('orderNotes').value
+  };
+  const res = await api.post('/orders', body);
+  if (res?.success) {
+    Toast.show(`Order ${res.data.orderNumber} placed! 🎉`, 'success');
+    closeModal('checkoutModal');
+    updateCartBadge();
+    switchView('orders');
+  } else {
+    Toast.show(res?.message || 'Order failed', 'error');
+  }
+}
+
+// ── ORDERS ────────────────────────────────────────────────────────────────
+async function renderOrders() {
+  const res    = await api.get('/orders/my');
+  const orders = res?.data || [];
+  const pc     = document.getElementById('pageContent');
+  pc.innerHTML = `
+    <div class="section-header"><h2>📦 My Orders</h2></div>
+    ${orders.length ? orders.map(o => `
+      <div class="order-card">
+        <div class="order-header">
+          <div><div class="order-num">${o.order_number} ${o.is_urgent?'🚨':''}</div><div class="order-date">${UI.dateTime(o.created_at)}</div></div>
+          ${UI.badge(o.status)}
+        </div>
+        <div class="order-items-text">${(o.items||[]).map(i=>`${i.product_name} ×${i.quantity}`).join(', ')}</div>
+        <div class="order-footer">
+          <span class="order-amount">${UI.currency(o.final_amount)}</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary btn-sm" onclick="trackOrder('${o.id}')">Track Order</button>
+            ${o.status==='delivered'?`<button class="btn btn-outline btn-sm" onclick="openReview('${o.id}')">Leave Review</button>`:''}
+          </div>
+        </div>
+      </div>`).join('') :
+      '<div class="empty-state"><div class="empty-icon">📦</div><p>No orders yet. Start shopping!</p><button class="btn btn-primary" style="margin-top:12px" onclick="switchView(\'shop\')">Browse Products</button></div>'}`;
+}
+
+async function trackOrder(id) {
+  const res   = await api.get(`/orders/${id}`);
+  const order = res?.data;
+  if (!order) return;
+  const steps = ['pending','confirmed','processing','dispatched','delivered'];
+  const ci    = steps.indexOf(order.status);
+  document.getElementById('trackBody').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><strong>${order.order_number}</strong> ${order.is_urgent?'<span class="badge badge-red">🚨 Urgent</span>':''}</div>
+        ${UI.badge(order.status)}
+      </div>
+      <div style="font-size:.82rem;color:var(--gray500)">Placed ${UI.dateTime(order.created_at)}</div>
+    </div>
+    <div class="tracker">
+      ${steps.map((s,i)=>`
+        <div class="tracker-step ${i<ci?'done':i===ci?'active':''}">
+          <div class="tracker-dot">${i<ci?'✓':i===ci?'●':''}</div>
+          <div class="tracker-label">${s.charAt(0).toUpperCase()+s.slice(1)}</div>
+        </div>`).join('')}
+    </div>
+    ${order.delivery ? `
+      <div style="background:var(--g50);border-radius:var(--r);padding:12px;margin-top:14px;font-size:.83rem">
+        <div style="font-weight:600;margin-bottom:6px">🚗 Delivery Info</div>
+        <div>Driver: ${order.delivery.driver_name||'Assigning…'}</div>
+        ${order.delivery.driver_phone?`<div>Phone: ${order.delivery.driver_phone}</div>`:''}
+        <div>Status: ${UI.badge(order.delivery.status)}</div>
+      </div>` : ''}
+    <div style="margin-top:14px">
+      <div style="font-size:.82rem;font-weight:500;margin-bottom:8px;color:var(--gray600)">Items Ordered</div>
+      ${order.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:.83rem;padding:5px 0;border-bottom:1px solid var(--gray100)"><span>${i.name} ×${i.quantity} ${i.unit}</span><span style="font-weight:600">${UI.currency(i.total_price)}</span></div>`).join('')}
+      <div style="display:flex;justify-content:space-between;font-weight:700;color:var(--g700);margin-top:8px"><span>Total Paid</span><span>${UI.currency(order.final_amount)}</span></div>
+    </div>`;
+  openModal('trackModal');
+}
+
+// ── PROFILE ───────────────────────────────────────────────────────────────
+async function renderProfile() {
+  const res = await api.get('/auth/profile');
+  const { user: u, profile } = res?.data || {};
+  const pc  = document.getElementById('pageContent');
+  pc.innerHTML = `
+    <div style="max-width:520px">
+      <h2 style="margin-bottom:20px">👤 My Profile</h2>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
+          <div style="width:64px;height:64px;background:linear-gradient(135deg,var(--g400),var(--g600));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;color:#fff;font-weight:700">${u?.name?.charAt(0)||'?'}</div>
+          <div><div style="font-size:1.1rem;font-weight:700">${u?.name}</div><div style="font-size:.82rem;color:var(--g600);text-transform:capitalize">${u?.role}</div><div style="font-size:.78rem;color:var(--gray500)">${u?.email}</div></div>
+        </div>
+        <div class="form-group"><label class="form-label">Full Name</label><input type="text" id="profName" class="form-control" value="${u?.name||''}"></div>
+        <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="profPhone" class="form-control" value="${u?.phone||''}"></div>
+        <div class="form-group"><label class="form-label">Address</label><input type="text" id="profAddress" class="form-control" value="${u?.address||''}"></div>
+        <button class="btn btn-primary btn-full" onclick="saveProfile()">Save Changes</button>
+      </div>
+    </div>`;
+}
+
+async function saveProfile() {
+  const res = await api.put('/auth/profile', {
+    name:    document.getElementById('profName').value,
+    phone:   document.getElementById('profPhone').value,
+    address: document.getElementById('profAddress').value
+  });
+  Toast.show(res?.success ? 'Profile updated!' : res?.message||'Failed', res?.success?'success':'error');
+}
+
+function openReview(orderId) {
+  Toast.show('Review feature: rate 1-5 stars and submit comment via /api/reviews', 'info');
+}
+
+// ── Global search handler ─────────────────────────────────────────────────
+function onSearch(v) { if (currentView === 'shop') renderShop(v); }
+
+// ── Initial load ─────────────────────────────────────────────────────────
+switchView('shop');
+</script>
+</body>
+</html>
