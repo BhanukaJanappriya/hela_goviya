@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hela Goviya — Fresh from Sri Lanka's Farms</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--g50:#f0fdf4;--g100:#dcfce7;--g200:#bbf7d0;--g300:#86efac;--g500:#22c55e;--g600:#16a34a;--g700:#15803d;--g800:#166534;--g900:#14532d;--earth:#d97706;--gray:#6b7280;--dark:#1f2937}
+body{font-family:'DM Sans',sans-serif;background:var(--g50);color:var(--dark);overflow-x:hidden}
+/* NAV */
+nav{position:fixed;top:0;width:100%;z-index:100;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border-bottom:1px solid rgba(34,197,94,.12);display:flex;align-items:center;justify-content:space-between;padding:14px 60px}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-icon{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#15803d);display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.logo-text{font-family:'Playfair Display',serif;font-weight:700;font-size:1.15rem;color:var(--g800)}
+.nav-links{display:flex;gap:28px;list-style:none}
+.nav-links a{text-decoration:none;color:var(--gray);font-weight:500;font-size:.9rem;transition:color .2s}
+.nav-links a:hover{color:var(--g600)}
+.nav-ctas{display:flex;gap:10px}
+.btn-ghost{padding:9px 20px;border-radius:999px;border:1.5px solid var(--g300);color:var(--g700);background:transparent;font-size:.875rem;font-weight:500;cursor:pointer;text-decoration:none;transition:all .2s}
+.btn-ghost:hover{background:var(--g100)}
+.btn-solid{padding:9px 20px;border-radius:999px;background:var(--g600);color:#fff;border:none;font-size:.875rem;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s}
+.btn-solid:hover{background:var(--g700);transform:translateY(-1px)}
+/* HERO */
+.hero{min-height:100vh;background:linear-gradient(150deg,#f0fdf4 0%,#dcfce7 45%,#bbf7d0 100%);display:flex;align-items:center;padding:120px 60px 80px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-200px;right:-150px;width:550px;height:550px;background:radial-gradient(circle,rgba(34,197,94,.14),transparent 70%);border-radius:50%}
+.hero::after{content:'';position:absolute;bottom:-100px;left:-80px;width:350px;height:350px;background:radial-gradient(circle,rgba(217,119,6,.07),transparent 70%);border-radius:50%}
+.hero-left{flex:1;max-width:580px;position:relative;z-index:1}
+.hero-tag{display:inline-flex;align-items:center;gap:6px;background:var(--g100);color:var(--g700);padding:6px 14px;border-radius:999px;font-size:.78rem;font-weight:600;margin-bottom:22px;border:1px solid var(--g200)}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--g500);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hero h1{font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(2.4rem,5vw,3.8rem);line-height:1.1;color:var(--g900);margin-bottom:18px}
+.hero h1 span{color:var(--g600)}
+.hero p{font-size:1.05rem;color:var(--gray);line-height:1.75;margin-bottom:32px;max-width:470px}
+.hero-btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn-hero{padding:13px 30px;border-radius:999px;font-size:.95rem;font-weight:600;text-decoration:none;transition:all .25s;display:inline-flex;align-items:center;gap:8px}
+.btn-hero-primary{background:var(--g600);color:#fff;box-shadow:0 4px 18px rgba(22,163,74,.28)}
+.btn-hero-primary:hover{background:var(--g700);transform:translateY(-2px);box-shadow:0 8px 28px rgba(22,163,74,.32)}
+.btn-hero-outline{background:#fff;color:var(--g700);border:2px solid var(--g200)}
+.btn-hero-outline:hover{border-color:var(--g400)}
+.hero-right{flex:1;display:flex;justify-content:center;align-items:center;position:relative;z-index:1}
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:360px}
+.fc{background:#fff;border-radius:18px;padding:18px;box-shadow:0 8px 22px rgba(0,0,0,.07);animation:float 4s ease-in-out infinite}
+.fc:nth-child(2){animation-delay:.8s;margin-top:20px}
+.fc:nth-child(3){animation-delay:1.6s;margin-top:-20px}
+.fc:nth-child(4){animation-delay:.4s}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.fc .em{font-size:2.2rem;margin-bottom:8px}
+.fc .nm{font-weight:600;font-size:.875rem}
+.fc .pr{font-weight:700;color:var(--g600);font-size:.95rem;margin-top:2px}
+.fc .tg{font-size:.65rem;background:var(--g100);color:var(--g700);padding:2px 8px;border-radius:999px;display:inline-block;margin-top:4px}
+/* TRUST */
+.trust{background:#fff;padding:18px 60px;display:flex;justify-content:center;gap:48px;flex-wrap:wrap;border-bottom:1px solid var(--g100)}
+.ti{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--gray)}
+.ti strong{color:var(--dark)}
+/* FEATURES */
+.features{padding:80px 60px;background:#fff}
+.slabel{text-align:center;color:var(--g600);font-weight:700;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
+.stitle{text-align:center;font-family:'Playfair Display',serif;font-size:2.2rem;font-weight:700;color:var(--g900);margin-bottom:12px}
+.ssub{text-align:center;color:var(--gray);font-size:.95rem;max-width:480px;margin:0 auto 52px}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:22px}
+.feat-card{padding:26px;border-radius:18px;border:1px solid var(--g100);background:var(--g50);transition:all .25s}
+.feat-card:hover{box-shadow:0 8px 28px rgba(0,0,0,.07);transform:translateY(-4px);background:#fff}
+.feat-card .fi{font-size:2.2rem;margin-bottom:12px}
+.feat-card h3{font-size:1rem;font-weight:600;margin-bottom:6px}
+.feat-card p{font-size:.83rem;color:var(--gray);line-height:1.65}
+/* ROLES */
+.roles{padding:80px 60px;background:linear-gradient(180deg,var(--g50),var(--g100))}
+.roles-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:18px;margin-top:52px}
+.role-card{background:#fff;border-radius:18px;padding:26px 18px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.04);transition:all .25s;text-decoration:none;color:inherit;border:2px solid transparent;display:block}
+.role-card:hover{border-color:var(--g300);transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,.08)}
+.role-card .ri{font-size:2.6rem;margin-bottom:12px}
+.role-card h3{font-size:.95rem;font-weight:600;margin-bottom:4px}
+.role-card p{font-size:.78rem;color:var(--gray)}
+.role-cta{margin-top:12px;display:inline-block;padding:5px 14px;border-radius:999px;background:var(--g100);color:var(--g700);font-size:.75rem;font-weight:700}
+/* STEPS */
+.how{padding:80px 60px;background:#fff}
+.steps{display:flex;justify-content:center;max-width:860px;margin:52px auto 0}
+.step{flex:1;text-align:center;padding:0 16px;position:relative}
+.step::after{content:'→';position:absolute;top:22px;right:-8px;font-size:1.3rem;color:var(--g300)}
+.step:last-child::after{display:none}
+.snum{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--g500),var(--g700));color:#fff;font-size:1.15rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.step h3{font-size:.92rem;font-weight:600;margin-bottom:4px}
+.step p{font-size:.8rem;color:var(--gray)}
+/* STATS */
+.stats{padding:56px;background:linear-gradient(135deg,var(--g700),var(--g900));color:#fff}
+.stats-inner{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;max-width:760px;margin:0 auto;text-align:center}
+.sv{font-family:'Playfair Display',serif;font-size:2.4rem;font-weight:700;color:var(--g200)}
+.sl{font-size:.85rem;color:rgba(255,255,255,.65);margin-top:3px}
+/* CTA */
+.cta{padding:72px 60px;text-align:center}
+.cta h2{font-family:'Playfair Display',serif;font-size:2.1rem;color:var(--g900);margin-bottom:10px}
+.cta p{color:var(--gray);margin-bottom:28px}
+/* FOOTER */
+footer{background:var(--g900);color:rgba(255,255,255,.65);padding:40px 60px 20px}
+.foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:36px;margin-bottom:32px}
+.foot-brand .flogo{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.foot-brand .flogo span{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;color:#fff}
+.foot-brand p{font-size:.82rem;line-height:1.65}
+.foot-col h4{color:#fff;font-size:.875rem;font-weight:600;margin-bottom:12px}
+.foot-col ul{list-style:none}
+.foot-col ul li{margin-bottom:7px}
+.foot-col ul li a{color:rgba(255,255,255,.55);text-decoration:none;font-size:.82rem;transition:color .2s}
+.foot-col ul li a:hover{color:var(--g300)}
+.foot-bottom{border-top:1px solid rgba(255,255,255,.1);padding-top:18px;text-align:center;font-size:.8rem}
+@media(max-width:768px){
+  nav{padding:14px 20px}.nav-links{display:none}
+  .hero{padding:90px 20px 56px;flex-direction:column;gap:36px}
+  .hero-right{display:none}
+  .trust,.features,.roles,.how,.cta{padding:56px 20px}
+  .stats{padding:48px 20px}.stats-inner{grid-template-columns:repeat(2,1fr)}
+  footer{padding:32px 20px 16px}.foot-grid{grid-template-columns:1fr 1fr}
+  .steps{flex-direction:column;gap:28px;max-width:260px}.step::after{display:none}
+}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="logo-icon">🌿</div>
+    <div class="logo-text">Hela Goviya</div>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#roles">For You</a></li>
+    <li><a href="#how">How It Works</a></li>
+  </ul>
+  <div class="nav-ctas" id="navCtas">
+    <a href="/login.html" class="btn-ghost">Sign In</a>
+    <a href="/register.html" class="btn-solid">Get Started →</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-tag"><div class="pulse"></div> Sri Lanka's #1 Agricultural Marketplace</div>
+    <h1>From the <span>Farm</span><br>to Your Doorstep</h1>
+    <p>Connect directly with local farmers and vendors. Fresh, organic, and authentic Sri Lankan produce delivered fast — better prices, zero middlemen.</p>
+    <div class="hero-btns">
+      <a href="/register.html" class="btn-hero btn-hero-primary">Start Shopping →</a>
+      <a href="/login.html"    class="btn-hero btn-hero-outline">Sign In</a>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="card-grid">
+      <div class="fc"><div class="em">🍅</div><div class="nm">Organic Tomatoes</div><div class="pr">Rs. 180/kg</div><div class="tg">🌿 Organic</div></div>
+      <div class="fc"><div class="em">🥬</div><div class="nm">Green Cabbage</div><div class="pr">Rs. 80/kg</div><div class="tg">🚜 Farm Fresh</div></div>
+      <div class="fc"><div class="em">🥕</div><div class="nm">Carrots</div><div class="pr">Rs. 120/kg</div><div class="tg">🌿 Organic</div></div>
+      <div class="fc"><div class="em">🌾</div><div class="nm">Samba Rice</div><div class="pr">Rs. 220/kg</div><div class="tg">⭐ Premium</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="trust">
+  <div class="ti"><span>✅</span><span><strong>Quality Verified</strong> — Direct from certified farms</span></div>
+  <div class="ti"><span>🚚</span><span><strong>Fast Delivery</strong> — Same day in Colombo</span></div>
+  <div class="ti"><span>💰</span><span><strong>Fair Prices</strong> — No middlemen markup</span></div>
+  <div class="ti"><span>🔒</span><span><strong>Secure Payments</strong> — Multiple methods</span></div>
+</div>
+
+<section class="features" id="features">
+  <div class="slabel">PLATFORM FEATURES</div>
+  <div class="stitle">Everything in One Platform</div>
+  <div class="ssub">A complete agricultural ecosystem connecting every role in the supply chain</div>
+  <div class="feat-grid">
+    <div class="feat-card"><div class="fi">🛒</div><h3>Smart Shopping</h3><p>Browse hundreds of products with real-time stock, filters, and category search.</p></div>
+    <div class="feat-card"><div class="fi">📦</div><h3>Order Tracking</h3><p>Live order status from placement to doorstep delivery with driver updates.</p></div>
+    <div class="feat-card"><div class="fi">🌱</div><h3>Vendor Management</h3><p>Full dashboards with inventory control, analytics, and order processing.</p></div>
+    <div class="feat-card"><div class="fi">🚗</div><h3>Smart Delivery Queue</h3><p>FIFO and priority queue ensures urgent orders are always handled first.</p></div>
+    <div class="feat-card"><div class="fi">📊</div><h3>Business Analytics</h3><p>Revenue charts, top products, daily reports and trend insights.</p></div>
+    <div class="feat-card"><div class="fi">🔔</div><h3>Smart Notifications</h3><p>Instant updates on orders, deliveries, stock alerts and approvals.</p></div>
+  </div>
+</section>
+
+<section class="roles" id="roles">
+  <div class="slabel">ROLE-BASED DASHBOARDS</div>
+  <div class="stitle">Built for Everyone</div>
+  <div class="ssub">Each role gets a purpose-built dashboard tailored to their specific workflow</div>
+  <div class="roles-grid">
+    <a href="/register.html?role=customer" class="role-card"><div class="ri">🛍️</div><h3>Customer</h3><p>Browse, order & track deliveries</p><div class="role-cta">Shop Now →</div></a>
+    <a href="/register.html?role=vendor"   class="role-card"><div class="ri">🌾</div><h3>Vendor / Farmer</h3><p>Supply produce & manage inventory</p><div class="role-cta">Join as Vendor →</div></a>
+    <a href="/register.html?role=seller"   class="role-card"><div class="ri">🏪</div><h3>Seller</h3><p>List products & process orders</p><div class="role-cta">Open a Store →</div></a>
+    <a href="/register.html?role=driver"   class="role-card"><div class="ri">🚗</div><h3>Delivery Driver</h3><p>Earn by delivering orders fast</p><div class="role-cta">Start Delivering →</div></a>
+    <a href="/login.html"                  class="role-card"><div class="ri">⚙️</div><h3>Admin</h3><p>Manage the entire platform</p><div class="role-cta">Admin Panel →</div></a>
+  </div>
+</section>
+
+<section class="how" id="how">
+  <div class="slabel">THE PROCESS</div>
+  <div class="stitle">How Hela Goviya Works</div>
+  <div class="ssub">Farm to table in four simple steps</div>
+  <div class="steps">
+    <div class="step"><div class="snum">1</div><h3>Browse & Add to Cart</h3><p>Explore fresh products from local farms</p></div>
+    <div class="step"><div class="snum">2</div><h3>Place Your Order</h3><p>Checkout with multiple payment options</p></div>
+    <div class="step"><div class="snum">3</div><h3>Seller Confirms</h3><p>Seller prepares and dispatches your order</p></div>
+    <div class="step"><div class="snum">4</div><h3>Driver Delivers</h3><p>Track delivery in real-time to your door</p></div>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stats-inner">
+    <div><div class="sv">2,400+</div><div class="sl">Happy Customers</div></div>
+    <div><div class="sv">380+</div><div class="sl">Verified Vendors</div></div>
+    <div><div class="sv">15,000+</div><div class="sl">Orders Delivered</div></div>
+    <div><div class="sv">98%</div><div class="sl">Satisfaction Rate</div></div>
+  </div>
+</section>
+
+<section class="cta">
+  <h2>Ready to Experience Fresh?</h2>
+  <p>Join thousands of Sri Lankans who trust Hela Goviya for their daily produce</p>
+  <a href="/register.html" class="btn-hero btn-hero-primary">Create Your Account — It's Free</a>
+</section>
+
+<footer>
+  <div class="foot-grid">
+    <div class="foot-brand">
+      <div class="flogo"><div class="logo-icon" style="width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,#22c55e,#15803d);display:flex;align-items:center;justify-content:center;font-size:.9rem">🌿</div><span>Hela Goviya</span></div>
+      <p>Sri Lanka's trusted agricultural marketplace — connecting farmers, sellers, drivers, and customers for a fresher, fairer food system.</p>
+    </div>
+    <div class="foot-col"><h4>Platform</h4><ul><li><a href="#">Browse Products</a></li><li><a href="#">For Vendors</a></li><li><a href="#">For Sellers</a></li><li><a href="#">Driver Program</a></li></ul></div>
+    <div class="foot-col"><h4>Company</h4><ul><li><a href="#">About Us</a></li><li><a href="#">Blog</a></li><li><a href="#">Careers</a></li><li><a href="#">Press</a></li></ul></div>
+    <div class="foot-col"><h4>Support</h4><ul><li><a href="#">Help Center</a></li><li><a href="#">Contact</a></li><li><a href="#">Privacy Policy</a></li><li><a href="#">Terms</a></li></ul></div>
+  </div>
+  <div class="foot-bottom">© 2024 Hela Goviya · Made with 🌿 for Sri Lankan Agriculture</div>
+</footer>
+
+<script>
+  // Redirect if already logged in
+  const u = localStorage.getItem('hg_user');
+  const t = localStorage.getItem('hg_token');
+  if (u && t) {
+    const user = JSON.parse(u);
+    const map  = { admin:'pages/admin.html', customer:'pages/customer.html', vendor:'pages/vendor.html', seller:'pages/seller.html', driver:'pages/driver.html' };
+    document.getElementById('navCtas').innerHTML =
+      `<a href="${map[user.role]}" class="btn-solid">My Dashboard →</a>`;
+  }
+</script>
+</body>
+</html>
