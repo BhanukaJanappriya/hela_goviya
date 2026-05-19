@@ -1,217 +1,331 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Driver Dashboard — Hela Goviya</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/css/main.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Driver Dashboard — Hela Goviya</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
-<div class="dashboard-layout">
-  <div id="sidebarContainer"></div>
-  <div class="main-content">
-    <div id="topbarContainer"></div>
-    <div id="notifPanelContainer"></div>
-    <div class="page-content page-enter" id="pageContent"></div>
+  <div class="dashboard-layout">
+    <div id="sidebarContainer"></div>
+    <div class="main-content">
+      <div id="topbarContainer"></div>
+      <div id="notifPanelContainer"></div>
+      <div class="page-content page-enter" id="pageContent"></div>
+    </div>
   </div>
-</div>
 
-<script src="/assets/js/api.js"></script>
-<script>
-const user = Auth.requireAuth(['driver']);
+  <script src="/assets/js/api.js"></script>
+  <script>
+    const user = Auth.requireAuth(['driver']);
 
-document.getElementById('sidebarContainer').innerHTML = UI.buildSidebar('driver', user, [
-  { icon:'📊', label:'Dashboard',    fn:"switchView('dashboard')", active:true },
-  { icon:'🚗', label:'My Deliveries',fn:"switchView('deliveries')"},
-  { icon:'📈', label:'Earnings',     fn:"switchView('earnings')"  },
-  { icon:'👤', label:'Profile',      fn:"switchView('profile')"   },
-]);
-document.getElementById('topbarContainer').innerHTML     = UI.buildTopbar('Driver Dashboard');
-document.getElementById('notifPanelContainer').innerHTML = UI.buildNotifPanel();
-UI.initSidebar(); UI.initNotifPanel();
+    const statusColors = {
+      assigned: '#3b82f6',
+      picked_up: '#d97706',
+      on_the_way: '#1d4ed8',
+      delivered: '#16a34a',
+      failed: '#ef4444'
+    };
 
-const statusColors = { assigned:'#3b82f6', picked_up:'#d97706', on_the_way:'#1d4ed8', delivered:'#16a34a', failed:'#ef4444' };
+    document.getElementById('sidebarContainer').innerHTML = UI.buildSidebar('driver', user, [
+      { icon: '📊', label: 'Dashboard',     fn: "switchView('dashboard')", active: true },
+      { icon: '🚗', label: 'My Deliveries', fn: "switchView('deliveries')" },
+      { icon: '📈', label: 'Earnings',      fn: "switchView('earnings')" },
+      { icon: '👤', label: 'Profile',       fn: "switchView('profile')" },
+    ]);
 
-async function switchView(view) {
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  UI.loading(document.getElementById('pageContent'));
-  if (view==='dashboard')   await renderDashboard();
-  else if (view==='deliveries') await renderDeliveries();
-  else if (view==='earnings')   await renderEarnings();
-  else if (view==='profile')    await renderProfile();
-}
+    document.getElementById('topbarContainer').innerHTML = UI.buildTopbar('Driver Dashboard');
+    document.getElementById('notifPanelContainer').innerHTML = UI.buildNotifPanel();
+    UI.initSidebar();
+    UI.initNotifPanel();
 
-// ── DASHBOARD ─────────────────────────────────────────────────────────────
-async function renderDashboard() {
-  const [statsRes, delRes] = await Promise.all([ api.get('/deliveries/stats'), api.get('/deliveries/my') ]);
-  const stats       = statsRes?.data || {};
-  const deliveries  = delRes?.data   || [];
-  const active      = deliveries.filter(d=>['assigned','picked_up','on_the_way'].includes(d.status));
-  const pc = document.getElementById('pageContent');
-  pc.innerHTML = `
-    <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
-      <div><h2>🚗 Driver Dashboard</h2><p style="color:var(--gray500);font-size:.875rem">Hello, ${user.name}</p></div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span style="font-size:.82rem;color:var(--gray500)">Status:</span>
-        <select id="availSelect" class="form-control" style="width:130px;padding:8px 10px" onchange="setAvailability(this.value)">
-          <option value="online"  ${stats.availability==='online' ?'selected':''}>🟢 Online</option>
-          <option value="busy"    ${stats.availability==='busy'   ?'selected':''}>🟡 Busy</option>
-          <option value="offline" ${stats.availability==='offline'?'selected':''}>⚫ Offline</option>
-        </select>
-      </div>
-    </div>
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-icon si-green">✅</div><div><div class="stat-value">${stats.total_deliveries||0}</div><div class="stat-label">Total Deliveries</div></div></div>
-      <div class="stat-card"><div class="stat-icon si-yellow">💰</div><div><div class="stat-value">${UI.currency(stats.daily_earnings||0)}</div><div class="stat-label">Today's Earnings</div></div></div>
-      <div class="stat-card"><div class="stat-icon si-blue">⏳</div><div><div class="stat-value">${stats.pending_deliveries||0}</div><div class="stat-label">Active Tasks</div></div></div>
-      <div class="stat-card"><div class="stat-icon si-green">⭐</div><div><div class="stat-value">${stats.rating||0}</div><div class="stat-label">Rating</div></div></div>
-    </div>
-    ${active.length ? `
-      <div class="card" style="margin-bottom:20px;border-left:4px solid var(--g500)">
-        <div style="font-weight:600;margin-bottom:12px;color:var(--g700)">🚨 Active Deliveries (${active.length})</div>
-        ${active.map(d=>renderDeliveryCard(d, true)).join('')}
-      </div>` : `
-      <div class="card card-flat" style="text-align:center;padding:32px;margin-bottom:20px;color:var(--gray400)">
-        <div style="font-size:2.5rem;margin-bottom:8px">🚗</div>
-        <p>No active deliveries. Stay online to receive tasks!</p>
-      </div>`}
-    <div class="card">
-      <div class="section-header"><div class="section-title">Recent Deliveries</div></div>
-      ${deliveries.filter(d=>d.status==='delivered').slice(0,5).map(d=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray100);font-size:.85rem">
-          <div><div style="font-weight:600">${d.order_number}</div><div style="color:var(--gray500);font-size:.75rem">${UI.ago(d.delivery_time||d.created_at)}</div></div>
-          <div style="text-align:right"><div style="color:var(--g700);font-weight:600">${UI.currency(d.earnings||150)}</div>${UI.badge(d.status)}</div>
-        </div>`).join('') || '<div style="color:var(--gray400);font-size:.875rem;padding:16px 0;text-align:center">No deliveries yet</div>'}
-    </div>`;
-}
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
 
-// ── DELIVERIES ────────────────────────────────────────────────────────────
-async function renderDeliveries() {
-  const res  = await api.get('/deliveries/my');
-  const all  = res?.data || [];
-  const pc   = document.getElementById('pageContent');
-  pc.innerHTML = `
-    <div class="section-header"><h2>🚗 My Deliveries</h2></div>
-    <div class="filter-bar">
-      <span class="filter-chip active" id="f-all"       onclick="filterDeliveries('all',this)">All (${all.length})</span>
-      <span class="filter-chip"        id="f-active"    onclick="filterDeliveries('active',this)">Active (${all.filter(d=>['assigned','picked_up','on_the_way'].includes(d.status)).length})</span>
-      <span class="filter-chip"        id="f-delivered" onclick="filterDeliveries('delivered',this)">Delivered</span>
-    </div>
-    <div id="deliveryList">
-      ${all.length ? all.map(d=>renderDeliveryCard(d, !['delivered','failed'].includes(d.status))).join('') : '<div class="empty-state"><div class="empty-icon">🚗</div><p>No deliveries yet</p></div>'}
-    </div>`;
-  window._allDeliveries = all;
-}
+    async function switchView(view) {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      const pc = document.getElementById('pageContent');
+      UI.loading(pc);
 
-function filterDeliveries(type, el) {
-  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
-  const all  = window._allDeliveries || [];
-  const list = document.getElementById('deliveryList');
-  let   show = all;
-  if (type==='active')    show = all.filter(d=>['assigned','picked_up','on_the_way'].includes(d.status));
-  if (type==='delivered') show = all.filter(d=>d.status==='delivered');
-  list.innerHTML = show.length ? show.map(d=>renderDeliveryCard(d, type!=='delivered')).join('') : '<div class="empty-state"><div class="empty-icon">🚗</div><p>No deliveries</p></div>';
-}
+      try {
+        if (view === 'dashboard') await renderDashboard();
+        else if (view === 'deliveries') await renderDeliveries();
+        else if (view === 'earnings') await renderEarnings();
+        else if (view === 'profile') await renderProfile();
+      } catch (err) {
+        pc.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load view</p></div>`;
+        console.error(err);
+        Toast.show('Something went wrong while loading the page.', 'error');
+      }
+    }
 
-function renderDeliveryCard(d, showActions=true) {
-  const nextStatus = { assigned:'picked_up', picked_up:'on_the_way', on_the_way:'delivered' };
-  const nextLabel  = { assigned:'Mark Picked Up', picked_up:'On the Way', on_the_way:'Mark Delivered' };
-  return `
-    <div class="order-card ${d.is_urgent?'':''}">
-      <div class="order-header">
-        <div>
-          <div class="order-num">${d.order_number} ${d.is_urgent?'🚨':''}</div>
-          <div class="order-date">📍 ${d.delivery_address}</div>
+    // ── DASHBOARD ─────────────────────────────────────────────────────────────
+    async function renderDashboard() {
+      const [statsRes, delRes] = await Promise.all([
+        api.get('/deliveries/stats'),
+        api.get('/deliveries/my')
+      ]);
+
+      const stats = statsRes?.data || {};
+      const deliveries = delRes?.data || [];
+      const active = deliveries.filter(d => ['assigned', 'picked_up', 'on_the_way'].includes(d.status));
+
+      const pc = document.getElementById('pageContent');
+      pc.innerHTML = `
+        <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
+            <h2>🚗 Driver Dashboard</h2>
+            <p style="color:var(--gray500);font-size:.875rem">Hello, ${escapeHtml(user.name)}</p>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:.82rem;color:var(--gray500)">Status:</span>
+            <select id="availSelect" class="form-control" style="width:130px;padding:8px 10px" onchange="setAvailability(this.value)">
+              <option value="online" ${stats.availability === 'online' ? 'selected' : ''}>🟢 Online</option>
+              <option value="busy" ${stats.availability === 'busy' ? 'selected' : ''}>🟡 Busy</option>
+              <option value="offline" ${stats.availability === 'offline' ? 'selected' : ''}>⚫ Offline</option>
+            </select>
+          </div>
         </div>
-        ${UI.badge(d.status)}
-      </div>
-      <div style="font-size:.82rem;color:var(--gray600);margin-bottom:10px">
-        ${(d.items||[]).map(i=>`${i.name} ×${i.quantity}`).join(', ')}
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:.83rem">
-        <div><span style="color:var(--gray500)">Customer: </span><strong>${d.customer_name||'—'}</strong> ${d.customer_phone?`· ${d.customer_phone}`:''}</div>
-        <div style="color:var(--g700);font-weight:700">${UI.currency(d.earnings||150)} earned</div>
-      </div>
-      ${showActions && nextStatus[d.status] ? `
-        <div style="margin-top:12px;display:flex;gap:8px">
-          <button class="btn btn-primary btn-sm" style="flex:1" onclick="updateStatus('${d.id}','${nextStatus[d.status]}')">
-            ${nextLabel[d.status]}
-          </button>
-          ${d.status==='assigned'?`<button class="btn btn-danger btn-sm" onclick="updateStatus('${d.id}','failed')">Can't Deliver</button>`:''}
-        </div>` : ''}
-    </div>`;
-}
 
-async function updateStatus(id, status) {
-  const res = await api.put(`/deliveries/${id}/status`, { status });
-  Toast.show(res?.success ? `Status updated to ${status.replace('_',' ')}!` : res?.message||'Failed', res?.success?'success':'error');
-  if (res?.success) switchView('dashboard');
-}
-
-async function setAvailability(v) {
-  const res = await api.put('/deliveries/availability', { availability: v });
-  Toast.show(res?.success ? `You are now ${v}` : 'Failed', res?.success?'success':'error');
-}
-
-// ── EARNINGS ──────────────────────────────────────────────────────────────
-async function renderEarnings() {
-  const res = await api.get('/analytics/driver');
-  const { stats={}, monthlyEarnings=[] } = res?.data || {};
-  const pc  = document.getElementById('pageContent');
-  const totalMonth = monthlyEarnings.reduce((s,d)=>s+(d.earnings||0),0);
-  pc.innerHTML = `
-    <h2 style="margin-bottom:20px">💰 Earnings</h2>
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-icon si-yellow">💰</div><div><div class="stat-value">${UI.currency(stats.daily_earnings||0)}</div><div class="stat-label">Today's Earnings</div></div></div>
-      <div class="stat-card"><div class="stat-icon si-green">📅</div><div><div class="stat-value">${UI.currency(totalMonth)}</div><div class="stat-label">This Month</div></div></div>
-      <div class="stat-card"><div class="stat-icon si-blue">✅</div><div><div class="stat-value">${stats.total_deliveries||0}</div><div class="stat-label">Total Deliveries</div></div></div>
-      <div class="stat-card"><div class="stat-icon si-green">⭐</div><div><div class="stat-value">${stats.rating||0}</div><div class="stat-label">Rating</div></div></div>
-    </div>
-    <div class="chart-card"><div class="chart-title">📊 Daily Earnings (Last 30 Days)</div><canvas id="earningsChart" width="600" height="180"></canvas></div>
-    <div class="card" style="margin-top:20px">
-      <div class="section-title" style="margin-bottom:12px">Delivery Log</div>
-      ${monthlyEarnings.length ? monthlyEarnings.slice().reverse().map(d=>`
-        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray100);font-size:.875rem">
-          <span>${UI.date(d.date)}</span>
-          <span>${d.deliveries} deliveries</span>
-          <span style="font-weight:700;color:var(--g700)">${UI.currency(d.earnings)}</span>
-        </div>`).join('') : '<div class="empty-state" style="padding:24px"><p>No earnings data yet</p></div>'}
-    </div>`;
-  if (monthlyEarnings.length) {
-    drawBar('earningsChart', monthlyEarnings.map(d=>d.date.slice(5)), monthlyEarnings.map(d=>d.earnings||0), '#4ade80');
-  }
-}
-
-// ── PROFILE ───────────────────────────────────────────────────────────────
-async function renderProfile() {
-  const res = await api.get('/auth/profile');
-  const { user:u, profile } = res?.data || {};
-  const pc  = document.getElementById('pageContent');
-  pc.innerHTML = `
-    <div style="max-width:520px">
-      <h2 style="margin-bottom:20px">👤 Profile</h2>
-      <div class="card" style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
-          <div style="width:56px;height:56px;background:linear-gradient(135deg,#0d9488,#0f766e);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;font-weight:700">${u?.name?.charAt(0)}</div>
-          <div><div style="font-weight:700">${u?.name}</div><div style="font-size:.78rem;color:#0d9488">Driver</div></div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon si-green">✅</div><div><div class="stat-value">${stats.total_deliveries || 0}</div><div class="stat-label">Total Deliveries</div></div></div>
+          <div class="stat-card"><div class="stat-icon si-yellow">💰</div><div><div class="stat-value">${UI.currency(stats.daily_earnings || 0)}</div><div class="stat-label">Today's Earnings</div></div></div>
+          <div class="stat-card"><div class="stat-icon si-blue">⏳</div><div><div class="stat-value">${stats.pending_deliveries || 0}</div><div class="stat-label">Active Tasks</div></div></div>
+          <div class="stat-card"><div class="stat-icon si-green">⭐</div><div><div class="stat-value">${stats.rating || 0}</div><div class="stat-label">Rating</div></div></div>
         </div>
-        <div class="form-group"><label class="form-label">Name</label><input type="text" id="profName" class="form-control" value="${u?.name||''}"></div>
-        <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="profPhone" class="form-control" value="${u?.phone||''}"></div>
-        <div class="form-group"><label class="form-label">Address</label><input type="text" id="profAddress" class="form-control" value="${u?.address||''}"></div>
-        <button class="btn btn-primary btn-full" onclick="saveProfile()">Save Changes</button>
-      </div>
-      ${profile?`<div class="card card-flat"><div style="font-weight:600;margin-bottom:10px">🚗 Vehicle Info</div><div style="font-size:.875rem;color:var(--gray600)">
-        <div>Vehicle: <strong>${profile.vehicle_type||'—'}</strong></div>
-        <div>Plate: <strong>${profile.vehicle_number||'—'}</strong></div>
-        <div>Total Deliveries: <strong>${profile.total_deliveries||0}</strong></div>
-        <div>Rating: ⭐ <strong>${profile.rating||0}</strong></div>
-        <div>Status: ${UI.badge(profile.approval_status)}</div>
-      </div></div>`:''}
-    </div>`;
-}
 
-async function saveProfile() {
-  const res = await api.put('/auth/profile', { name:document.getElementById('profName').value, phone:document.getElementById('profPhone').value, address:document.getElementById('profAddress').value });
-  Toast.show(res?.success?'Saved!':res?.message||'Failed',
+        ${active.length ? `
+          <div class="card" style="margin-bottom:20px;border-left:4px solid var(--g500)">
+            <div style="font-weight:600;margin-bottom:12px;color:var(--g700)">🚨 Active Deliveries (${active.length})</div>
+            ${active.map(d => renderDeliveryCard(d, true)).join('')}
+          </div>` : `
+          <div class="card card-flat" style="text-align:center;padding:32px;margin-bottom:20px;color:var(--gray400)">
+            <div style="font-size:2.5rem;margin-bottom:8px">🚗</div>
+            <p>No active deliveries. Stay online to receive tasks!</p>
+          </div>`}
+
+        <div class="card">
+          <div class="section-header"><div class="section-title">Recent Deliveries</div></div>
+          ${deliveries
+            .filter(d => d.status === 'delivered')
+            .slice(0, 5)
+            .map(d => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray100);font-size:.85rem">
+                <div>
+                  <div style="font-weight:600">${escapeHtml(d.order_number)}</div>
+                  <div style="color:var(--gray500);font-size:.75rem">${UI.ago(d.delivery_time || d.created_at)}</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="color:var(--g700);font-weight:600">${UI.currency(d.earnings || 150)}</div>
+                  ${UI.badge(d.status)}
+                </div>
+              </div>`).join('') || '<div style="color:var(--gray400);font-size:.875rem;padding:16px 0;text-align:center">No deliveries yet</div>'}
+        </div>`;
+    }
+
+    // ── DELIVERIES ────────────────────────────────────────────────────────────
+    async function renderDeliveries() {
+      const res = await api.get('/deliveries/my');
+      const all = res?.data || [];
+      const pc = document.getElementById('pageContent');
+
+      pc.innerHTML = `
+        <div class="section-header"><h2>🚗 My Deliveries</h2></div>
+        <div class="filter-bar">
+          <span class="filter-chip active" id="f-all" onclick="filterDeliveries('all', this)">All (${all.length})</span>
+          <span class="filter-chip" id="f-active" onclick="filterDeliveries('active', this)">Active (${all.filter(d => ['assigned', 'picked_up', 'on_the_way'].includes(d.status)).length})</span>
+          <span class="filter-chip" id="f-delivered" onclick="filterDeliveries('delivered', this)">Delivered (${all.filter(d => d.status === 'delivered').length})</span>
+        </div>
+        <div id="deliveryList">
+          ${all.length ? all.map(d => renderDeliveryCard(d, !['delivered', 'failed'].includes(d.status))).join('') : '<div class="empty-state"><div class="empty-icon">🚗</div><p>No deliveries yet</p></div>'}
+        </div>`;
+
+      window._allDeliveries = all;
+    }
+
+    function filterDeliveries(type, el) {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+
+      const all = window._allDeliveries || [];
+      const list = document.getElementById('deliveryList');
+
+      let show = all;
+      if (type === 'active') show = all.filter(d => ['assigned', 'picked_up', 'on_the_way'].includes(d.status));
+      if (type === 'delivered') show = all.filter(d => d.status === 'delivered');
+
+      list.innerHTML = show.length
+        ? show.map(d => renderDeliveryCard(d, type !== 'delivered')).join('')
+        : '<div class="empty-state"><div class="empty-icon">🚗</div><p>No deliveries</p></div>';
+    }
+
+    function renderDeliveryCard(d, showActions = true) {
+      const nextStatus = { assigned: 'picked_up', picked_up: 'on_the_way', on_the_way: 'delivered' };
+      const nextLabel = { assigned: 'Mark Picked Up', picked_up: 'On the Way', on_the_way: 'Mark Delivered' };
+      const items = Array.isArray(d.items) ? d.items : [];
+
+      return `
+        <div class="order-card ${d.is_urgent ? '' : ''}">
+          <div class="order-header">
+            <div>
+              <div class="order-num">${escapeHtml(d.order_number)} ${d.is_urgent ? '🚨' : ''}</div>
+              <div class="order-date">📍 ${escapeHtml(d.delivery_address || '—')}</div>
+            </div>
+            ${UI.badge(d.status)}
+          </div>
+
+          <div style="font-size:.82rem;color:var(--gray600);margin-bottom:10px">
+            ${items.map(i => `${escapeHtml(i.name)} ×${i.quantity}`).join(', ') || 'No items listed'}
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.83rem;gap:10px;flex-wrap:wrap">
+            <div>
+              <span style="color:var(--gray500)">Customer: </span>
+              <strong>${escapeHtml(d.customer_name || '—')}</strong>
+              ${d.customer_phone ? `· ${escapeHtml(d.customer_phone)}` : ''}
+            </div>
+            <div style="color:var(--g700);font-weight:700">${UI.currency(d.earnings || 150)} earned</div>
+          </div>
+
+          ${showActions && nextStatus[d.status] ? `
+            <div style="margin-top:12px;display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" style="flex:1" onclick="updateStatus('${d.id}', '${nextStatus[d.status]}')">
+                ${nextLabel[d.status]}
+              </button>
+              ${d.status === 'assigned' ? `<button class="btn btn-danger btn-sm" onclick="updateStatus('${d.id}', 'failed')">Can't Deliver</button>` : ''}
+            </div>` : ''}
+        </div>`;
+    }
+
+    async function updateStatus(id, status) {
+      const res = await api.put(`/deliveries/${id}/status`, { status });
+      Toast.show(
+        res?.success ? `Status updated to ${status.replaceAll('_', ' ')}!` : (res?.message || 'Failed'),
+        res?.success ? 'success' : 'error'
+      );
+      if (res?.success) await switchView('dashboard');
+    }
+
+    async function setAvailability(v) {
+      const res = await api.put('/deliveries/availability', { availability: v });
+      Toast.show(res?.success ? `You are now ${v}` : (res?.message || 'Failed'), res?.success ? 'success' : 'error');
+    }
+
+    // ── EARNINGS ──────────────────────────────────────────────────────────────
+    async function renderEarnings() {
+      const res = await api.get('/analytics/driver');
+      const { stats = {}, monthlyEarnings = [] } = res?.data || {};
+      const pc = document.getElementById('pageContent');
+      const totalMonth = monthlyEarnings.reduce((s, d) => s + (d.earnings || 0), 0);
+
+      pc.innerHTML = `
+        <h2 style="margin-bottom:20px">💰 Earnings</h2>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon si-yellow">💰</div><div><div class="stat-value">${UI.currency(stats.daily_earnings || 0)}</div><div class="stat-label">Today's Earnings</div></div></div>
+          <div class="stat-card"><div class="stat-icon si-green">📅</div><div><div class="stat-value">${UI.currency(totalMonth)}</div><div class="stat-label">This Month</div></div></div>
+          <div class="stat-card"><div class="stat-icon si-blue">✅</div><div><div class="stat-value">${stats.total_deliveries || 0}</div><div class="stat-label">Total Deliveries</div></div></div>
+          <div class="stat-card"><div class="stat-icon si-green">⭐</div><div><div class="stat-value">${stats.rating || 0}</div><div class="stat-label">Rating</div></div></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">📊 Daily Earnings (Last 30 Days)</div>
+          <canvas id="earningsChart" width="600" height="180"></canvas>
+        </div>
+
+        <div class="card" style="margin-top:20px">
+          <div class="section-title" style="margin-bottom:12px">Delivery Log</div>
+          ${monthlyEarnings.length ? monthlyEarnings.slice().reverse().map(d => `
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray100);font-size:.875rem;gap:10px;flex-wrap:wrap">
+              <span>${UI.date(d.date)}</span>
+              <span>${d.deliveries} deliveries</span>
+              <span style="font-weight:700;color:var(--g700)">${UI.currency(d.earnings)}</span>
+            </div>`).join('') : '<div class="empty-state" style="padding:24px"><p>No earnings data yet</p></div>'}
+        </div>`;
+
+      if (monthlyEarnings.length) {
+        drawBar(
+          'earningsChart',
+          monthlyEarnings.map(d => d.date.slice(5)),
+          monthlyEarnings.map(d => d.earnings || 0),
+          '#4ade80'
+        );
+      }
+    }
+
+    // ── PROFILE ───────────────────────────────────────────────────────────────
+    async function renderProfile() {
+      const res = await api.get('/auth/profile');
+      const { user: u, profile } = res?.data || {};
+      const pc = document.getElementById('pageContent');
+
+      pc.innerHTML = `
+        <div style="max-width:520px">
+          <h2 style="margin-bottom:20px">👤 Profile</h2>
+          <div class="card" style="margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+              <div style="width:56px;height:56px;background:linear-gradient(135deg,#0d9488,#0f766e);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;font-weight:700">
+                ${escapeHtml(u?.name?.charAt(0) || 'D')}
+              </div>
+              <div>
+                <div style="font-weight:700">${escapeHtml(u?.name || 'Driver')}</div>
+                <div style="font-size:.78rem;color:#0d9488">Driver</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input type="text" id="profName" class="form-control" value="${escapeHtml(u?.name || '')}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone</label>
+              <input type="tel" id="profPhone" class="form-control" value="${escapeHtml(u?.phone || '')}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Address</label>
+              <input type="text" id="profAddress" class="form-control" value="${escapeHtml(u?.address || '')}">
+            </div>
+            <button class="btn btn-primary btn-full" onclick="saveProfile()">Save Changes</button>
+          </div>
+
+          ${profile ? `
+            <div class="card card-flat">
+              <div style="font-weight:600;margin-bottom:10px">🚗 Vehicle Info</div>
+              <div style="font-size:.875rem;color:var(--gray600)">
+                <div>Vehicle: <strong>${escapeHtml(profile.vehicle_type || '—')}</strong></div>
+                <div>Plate: <strong>${escapeHtml(profile.vehicle_number || '—')}</strong></div>
+                <div>Total Deliveries: <strong>${profile.total_deliveries || 0}</strong></div>
+                <div>Rating: ⭐ <strong>${profile.rating || 0}</strong></div>
+                <div>Status: ${UI.badge(profile.approval_status || 'pending')}</div>
+              </div>
+            </div>` : ''}
+        </div>`;
+    }
+
+    async function saveProfile() {
+      const payload = {
+        name: document.getElementById('profName').value.trim(),
+        phone: document.getElementById('profPhone').value.trim(),
+        address: document.getElementById('profAddress').value.trim()
+      };
+
+      const res = await api.put('/auth/profile', payload);
+      Toast.show(res?.success ? 'Saved!' : (res?.message || 'Failed'), res?.success ? 'success' : 'error');
+
+      if (res?.success) {
+        await switchView('profile');
+      }
+    }
+
+    // Initial page
+    switchView('dashboard');
+  </script>
+</body>
+</html>
