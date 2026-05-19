@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Create Account — Hela Goviya</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:linear-gradient(150deg,#f0fdf4,#dcfce7 50%,#bbf7d0);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.wrap{background:#fff;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.1);width:100%;max-width:520px;padding:40px 40px 32px;position:relative;overflow:hidden}
+.wrap::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(34,197,94,.08),transparent);border-radius:50%}
+.logo-row{display:flex;align-items:center;gap:8px;margin-bottom:24px}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#22c55e,#15803d);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem}
+.logo-name{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;color:#166534}
+h2{font-family:'Playfair Display',serif;font-size:1.55rem;color:#166534;margin-bottom:4px}
+.sub{font-size:.85rem;color:#6b7280;margin-bottom:20px}
+/* Role selector */
+.role-selector{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+.role-opt{border:2px solid #e5e7eb;border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;transition:all .2s}
+.role-opt:hover{border-color:#86efac;background:#f0fdf4}
+.role-opt.selected{border-color:#16a34a;background:#f0fdf4}
+.role-opt .ricon{font-size:1.4rem;margin-bottom:4px}
+.role-opt .rlabel{font-size:.72rem;font-weight:600;color:#374151}
+/* Fields */
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:.82rem;font-weight:600;color:#374151;margin-bottom:4px}
+.form-control{width:100%;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;transition:border-color .2s,box-shadow .2s;background:#fafafa}
+.form-control:focus{border-color:#4ade80;box-shadow:0 0 0 3px rgba(34,197,94,.1);background:#fff}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.extra-fields{display:none}
+.extra-fields.show{display:block}
+.notice{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;font-size:.78rem;color:#166534;margin-bottom:14px;display:none}
+.notice.show{display:block}
+.btn-submit{width:100%;padding:12px;background:#16a34a;color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.92rem;font-weight:600;cursor:pointer;transition:all .2s;margin-top:4px}
+.btn-submit:hover{background:#15803d;box-shadow:0 4px 14px rgba(22,163,74,.28)}
+.btn-submit:disabled{opacity:.6;cursor:not-allowed}
+.error-msg{background:#fee2e2;color:#dc2626;padding:9px 12px;border-radius:8px;font-size:.82rem;margin-bottom:12px;display:none}
+.auth-link{text-align:center;font-size:.84rem;color:#6b7280;margin-top:14px}
+.auth-link a{color:#16a34a;font-weight:600;text-decoration:none}
+@media(max-width:480px){.wrap{padding:28px 20px}.form-row{grid-template-columns:1fr}.role-selector{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo-row">
+    <div class="logo-icon">🌿</div>
+    <div class="logo-name">Hela Goviya</div>
+  </div>
+  <h2>Create Account</h2>
+  <p class="sub">Join Sri Lanka's fresh agricultural marketplace</p>
+
+  <div class="role-selector" id="roleSelector">
+    <div class="role-opt" onclick="selectRole('customer', this)"><div class="ricon">🛍️</div><div class="rlabel">Customer</div></div>
+    <div class="role-opt" onclick="selectRole('vendor', this)"><div class="ricon">🌾</div><div class="rlabel">Vendor</div></div>
+    <div class="role-opt" onclick="selectRole('seller', this)"><div class="ricon">🏪</div><div class="rlabel">Seller</div></div>
+    <div class="role-opt" onclick="selectRole('driver', this)"><div class="ricon">🚗</div><div class="rlabel">Driver</div></div>
+  </div>
+
+  <div class="notice" id="approvalNotice">⏳ Vendor and Driver accounts require admin approval before access.</div>
+  <div class="error-msg" id="errMsg"></div>
+
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Full Name</label><input type="text" id="name" class="form-control" placeholder="Your full name"></div>
+    <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="phone" class="form-control" placeholder="07XXXXXXXX"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Email Address</label><input type="email" id="email" class="form-control" placeholder="you@example.com"></div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Password</label><input type="password" id="password" class="form-control" placeholder="Min 6 characters"></div>
+    <div class="form-group"><label class="form-label">Confirm Password</label><input type="password" id="confirmPw" class="form-control" placeholder="Repeat password"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Address</label><input type="text" id="address" class="form-control" placeholder="Your address"></div>
+
+  <!-- Vendor extra -->
+  <div class="extra-fields" id="vendorFields">
+    <div class="form-group"><label class="form-label">Business / Farm Name</label><input type="text" id="businessName" class="form-control" placeholder="e.g. Green Valley Farms"></div>
+  </div>
+  <!-- Seller extra -->
+  <div class="extra-fields" id="sellerFields">
+    <div class="form-group"><label class="form-label">Store Name</label><input type="text" id="storeName" class="form-control" placeholder="e.g. Fresh Harvest Market"></div>
+  </div>
+  <!-- Driver extra -->
+  <div class="extra-fields" id="driverFields">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Vehicle Type</label>
+        <select id="vehicleType" class="form-control">
+          <option value="Motorcycle">Motorcycle</option>
+          <option value="Three-Wheeler">Three-Wheeler</option>
+          <option value="Van">Van</option>
+          <option value="Lorry">Lorry</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Vehicle Number</label><input type="text" id="vehicleNumber" class="form-control" placeholder="WP CAA-1234"></div>
+    </div>
+  </div>
+
+  <button class="btn-submit" id="regBtn" onclick="doRegister()" disabled>Select a Role to Continue</button>
+  <div class="auth-link">Already have an account? <a href="/login.html">Sign in</a></div>
+</div>
+
+<script>
+  let selectedRole = null;
+
+  // Pre-select from URL param
+  const urlRole = new URLSearchParams(location.search).get('role');
+  if (urlRole) {
+    const idx = { customer:0, vendor:1, seller:2, driver:3 }[urlRole];
+    if (idx !== undefined) {
+      const opts = document.querySelectorAll('.role-opt');
+      selectRole(urlRole, opts[idx]);
+    }
+  }
+
+  function selectRole(role, el) {
+    selectedRole = role;
+    document.querySelectorAll('.role-opt').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    // Toggle extra fields
+    ['vendorFields','sellerFields','driverFields'].forEach(id => document.getElementById(id).classList.remove('show'));
+    if (role === 'vendor') document.getElementById('vendorFields').classList.add('show');
+    if (role === 'seller') document.getElementById('sellerFields').classList.add('show');
+    if (role === 'driver') document.getElementById('driverFields').classList.add('show');
+    const notice = document.getElementById('approvalNotice');
+    notice.classList.toggle('show', role === 'vendor' || role === 'driver');
+    const btn = document.getElementById('regBtn');
+    btn.disabled    = false;
+    btn.textContent = `Create ${role.charAt(0).toUpperCase()+role.slice(1)} Account`;
+  }
+
+  async function doRegister() {
+    const err = document.getElementById('errMsg');
+    err.style.display = 'none';
+    if (!selectedRole) { showErr('Please select a role'); return; }
+    const name      = document.getElementById('name').value.trim();
+    const email     = document.getElementById('email').value.trim();
+    const password  = document.getElementById('password').value;
+    const confirmPw = document.getElementById('confirmPw').value;
+    const phone     = document.getElementById('phone').value.trim();
+    const address   = document.getElementById('address').value.trim();
+    if (!name || !email || !password) { showErr('Name, email and password are required'); return; }
+    if (password.length < 6)           { showErr('Password must be at least 6 characters'); return; }
+    if (password !== confirmPw)        { showErr('Passwords do not match'); return; }
+    const body = { name, email, password, role:selectedRole, phone, address,
+      businessName:  document.getElementById('businessName')?.value.trim(),
+      storeName:     document.getElementById('storeName')?.value.trim(),
+      vehicleType:   document.getElementById('vehicleType')?.value,
+      vehicleNumber: document.getElementById('vehicleNumber')?.value.trim()
+    };
+    const btn = document.getElementById('regBtn');
+    btn.disabled    = true;
+    btn.textContent = 'Creating account…';
+    try {
+      const res  = await fetch('/api/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+      const data = await res.json();
+      if (data.success) {
+        if (['vendor','driver'].includes(selectedRole)) {
+          alert('Account created! Your account is pending admin approval. You will be notified once approved.');
+          window.location.href = '/login.html';
+        } else {
+          localStorage.setItem('hg_token', data.data.token);
+          localStorage.setItem('hg_user',  JSON.stringify(data.data.user));
+          const map = { customer:'/pages/customer.html', seller:'/pages/seller.html' };
+          window.location.href = map[selectedRole] || '/login.html';
+        }
+      } else {
+        showErr(data.message || 'Registration failed');
+      }
+    } catch (e) {
+      showErr('Network error. Is the server running?');
+    }
+    btn.disabled    = false;
+    btn.textContent = `Create ${selectedRole.charAt(0).toUpperCase()+selectedRole.slice(1)} Account`;
+  }
+  function showErr(msg) { const e = document.getElementById('errMsg'); e.textContent = msg; e.style.display='block'; }
+</script>
+</body>
+</html>
