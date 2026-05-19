@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seller Dashboard — Hela Goviya</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+<div class="dashboard-layout">
+  <div id="sidebarContainer"></div>
+  <div class="main-content">
+    <div id="topbarContainer"></div>
+    <div id="notifPanelContainer"></div>
+    <div class="page-content page-enter" id="pageContent"></div>
+  </div>
+</div>
+
+<!-- Add/Edit Product Modal -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="productModalTitle">Add Product</h3><button class="modal-close" onclick="closeModal('productModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="editProductId">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Product Name</label><input type="text" id="prodName" class="form-control" placeholder="e.g. Organic Tomatoes"></div>
+        <div class="form-group"><label class="form-label">Category</label><select id="prodCat" class="form-control"><option value="">Select…</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><textarea id="prodDesc" class="form-control" rows="2" placeholder="Brief description"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Price (Rs.)</label><input type="number" id="prodPrice" class="form-control" placeholder="0.00"></div>
+        <div class="form-group"><label class="form-label">Original Price (Rs.)</label><input type="number" id="prodOrig" class="form-control" placeholder="0.00"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Stock</label><input type="number" id="prodStock" class="form-control" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">Unit</label>
+          <select id="prodUnit" class="form-control"><option value="kg">kg</option><option value="g">g</option><option value="piece">piece</option><option value="bunch">bunch</option><option value="dozen">dozen</option><option value="100g">100g</option><option value="250g">250g</option><option value="500g">500g</option></select>
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.875rem;cursor:pointer;margin-bottom:16px"><input type="checkbox" id="prodOrganic"> Mark as Organic 🌿</label>
+      <button class="btn btn-primary btn-full" onclick="saveProduct()">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Order Detail Modal -->
+<div class="modal-overlay" id="orderModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Order Details</h3><button class="modal-close" onclick="closeModal('orderModal')">✕</button></div>
+    <div class="modal-body" id="orderModalBody"></div>
+  </div>
+</div>
+
+<script src="/assets/js/api.js"></script>
+<script>
+const user = Auth.requireAuth(['seller']);
+
+document.getElementById('sidebarContainer').innerHTML = UI.buildSidebar('seller', user, [
+  { icon:'📊', label:'Dashboard',   fn:"switchView('dashboard')", active:true },
+  { icon:'📦', label:'Orders',      fn:"switchView('orders')"   },
+  { icon:'🌿', label:'Products',    fn:"switchView('products')" },
+  { icon:'📈', label:'Analytics',   fn:"switchView('analytics')"},
+  { icon:'👤', label:'Profile',     fn:"switchView('profile')"  },
+]);
+document.getElementById('topbarContainer').innerHTML  = UI.buildTopbar('Seller Dashboard');
+document.getElementById('notifPanelContainer').innerHTML = UI.buildNotifPanel();
+UI.initSidebar(); UI.initNotifPanel();
+
+let categories = [];
+
+async function switchView(view) {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pc = document.getElementById('pageContent');
+  UI.loading(pc);
+  if (view === 'dashboard')  await renderDashboard();
+  else if (view === 'orders')     await renderOrders();
+  else if (view === 'products')   await renderProducts();
+  else if (view === 'analytics')  await renderAnalytics();
+  else if (view === 'profile')    await renderProfile();
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────
+async function renderDashboard() {
+  const [aRes, oRes] = await Promise.all([ api.get('/analytics/seller'), api.get('/orders/seller') ]);
+  const { summary={}, topProducts=[], salesByDay=[] } = aRes?.data || {};
+  const orders = oRes?.data?.slice(0,6) || [];
+  const pc = document.getElementById('pageContent');
+  pc.innerHTML = `
+    <div style="margin-bottom:20px"><h2>📊 Dashboard</h2><p style="color:var(--gray500);font-size:.875rem">Welcome back, ${user.name}</p></div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-icon si-green">📦</div><div><div class="stat-value">${summary.totalOrders||0}</div><div class="stat-label">Total Orders</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-yellow">💰</div><div><div class="stat-value">${UI.currency(summary.totalRevenue||0)}</div><div class="stat-label">Revenue Earned</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-red">⏳</div><div><div class="stat-value">${summary.pendingOrders||0}</div><div class="stat-label">Pending Orders</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-blue">🌿</div><div><div class="stat-value">${summary.activeProducts||0}</div><div class="stat-label">Active Products</div></div></div>
+    </div>
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="chart-card">
+        <div class="chart-title">📈 7-Day Revenue</div>
+        <canvas id="revenueChart" width="320" height="160"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🏆 Top Products</div>
+        ${topProducts.length ? topProducts.map((p,i)=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray100);font-size:.85rem">
+            <span>${i+1}. ${p.name}</span>
+            <div style="text-align:right"><div style="font-weight:600;color:var(--g700)">${p.total_sold} sold</div><div style="font-size:.75rem;color:var(--gray400)">${UI.currency(p.revenue)}</div></div>
+          </div>`).join('') : '<div class="empty-state" style="padding:24px"><p>No sales yet</p></div>'}
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-header"><div class="section-title">Recent Orders</div><button class="btn btn-outline btn-sm" onclick="switchView('orders')">View All</button></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Order</th><th>Customer</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>${orders.map(o=>`
+            <tr>
+              <td><div style="font-weight:600">${o.order_number}</div><div style="font-size:.75rem;color:var(--gray500)">${UI.date(o.created_at)}</div></td>
+              <td>${o.customer_name||'—'}</td>
+              <td style="font-weight:600;color:var(--g700)">${UI.currency(o.final_amount)}</td>
+              <td>${UI.badge(o.status)}</td>
+              <td><button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">View</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  if (salesByDay.length) {
+    const labels = salesByDay.map(d=>d.date.slice(5));
+    drawBar('revenueChart', labels, salesByDay.map(d=>d.revenue||0), '#22c55e');
+  }
+}
+
+// ── ORDERS ────────────────────────────────────────────────────────────────
+async function renderOrders(status='') {
+  const res    = await api.get(`/orders/seller${status?`?status=${status}`:''}`);
+  const orders = res?.data || [];
+  const pc     = document.getElementById('pageContent');
+  pc.innerHTML = `
+    <div class="section-header"><h2>📦 Orders</h2></div>
+    <div class="filter-bar">
+      ${['','pending','confirmed','processing','dispatched','delivered','cancelled'].map(s=>`
+        <span class="filter-chip ${status===s?'active':''}" onclick="renderOrders('${s}')">${s||'All'}</span>`).join('')}
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Order #</th><th>Customer</th><th>Items</th><th>Amount</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${orders.length ? orders.map(o=>`
+          <tr>
+            <td><div style="font-weight:600">${o.order_number}</div><div style="font-size:.73px;color:var(--gray500)">${UI.date(o.created_at)}</div></td>
+            <td>${o.customer_name||'—'}</td>
+            <td style="font-size:.8rem;color:var(--gray600)">—</td>
+            <td style="font-weight:600;color:var(--g700)">${UI.currency(o.final_amount)}</td>
+            <td>${o.is_urgent?'<span class="badge badge-red">🚨 Urgent</span>':'<span class="badge badge-gray">Normal</span>'}</td>
+            <td>${UI.badge(o.status)}</td>
+            <td>
+              <button class="btn btn-secondary btn-sm" onclick="viewOrder('${o.id}')">Details</button>
+              ${o.status==='pending'?`<button class="btn btn-primary btn-sm" onclick="updateStatus('${o.id}','confirmed')">Confirm</button>`:''}
+              ${o.status==='confirmed'?`<button class="btn btn-earth btn-sm" onclick="updateStatus('${o.id}','processing')">Process</button>`:''}
+              ${o.status==='processing'?`<button class="btn btn-primary btn-sm" onclick="updateStatus('${o.id}','dispatched')">Dispatch</button>`:''}
+            </td>
+          </tr>`).join('') :
+          '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray400)">No orders found</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function viewOrder(id) {
+  const res   = await api.get(`/orders/${id}`);
+  const order = res?.data;
+  if (!order) return;
+  document.getElementById('orderModalBody').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div><div style="font-weight:700;font-size:1rem">${order.order_number}</div><div style="font-size:.78rem;color:var(--gray500)">${UI.dateTime(order.created_at)}</div></div>
+      ${UI.badge(order.status)}
+    </div>
+    <div style="background:var(--gray50);border-radius:var(--r);padding:12px;margin-bottom:12px;font-size:.83rem">
+      <div style="font-weight:600;margin-bottom:6px">👤 Customer</div>
+      <div>${order.customer_name}</div><div>${order.customer_phone||''}</div>
+      <div style="margin-top:6px"><strong>Address:</strong> ${order.delivery_address}</div>
+    </div>
+    <div class="table-wrap" style="margin-bottom:12px">
+      <table>
+        <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+        <tbody>${order.items.map(i=>`<tr><td>${i.name}</td><td>${i.quantity} ${i.unit}</td><td>${UI.currency(i.unit_price)}</td><td style="font-weight:600">${UI.currency(i.total_price)}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-weight:700;color:var(--g700);margin-bottom:14px"><span>Total Amount</span><span>${UI.currency(order.final_amount)}</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${order.status==='pending'    ?`<button class="btn btn-primary btn-sm" onclick="updateStatus('${order.id}','confirmed');closeModal('orderModal')">✓ Confirm Order</button>`:''}
+      ${order.status==='confirmed'  ?`<button class="btn btn-earth btn-sm" onclick="updateStatus('${order.id}','processing');closeModal('orderModal')">⚙ Start Processing</button>`:''}
+      ${order.status==='processing' ?`<button class="btn btn-primary btn-sm" onclick="updateStatus('${order.id}','dispatched');closeModal('orderModal')">🚚 Mark Dispatched</button>`:''}
+      ${['pending','confirmed'].includes(order.status)?`<button class="btn btn-danger btn-sm" onclick="updateStatus('${order.id}','cancelled');closeModal('orderModal')">✕ Cancel</button>`:''}
+    </div>`;
+  openModal('orderModal');
+}
+
+async function updateStatus(id, status) {
+  const res = await api.put(`/orders/${id}/status`, { status });
+  Toast.show(res?.success ? `Order ${status}!` : res?.message||'Failed', res?.success?'success':'error');
+  if (res?.success) renderOrders();
+}
+
+// ── PRODUCTS ──────────────────────────────────────────────────────────────
+async function renderProducts() {
+  const [prodsRes, lowRes] = await Promise.all([ api.get('/products/seller'), api.get('/products/low-stock') ]);
+  const products = prodsRes?.data || [];
+  const lowStock = lowRes?.data  || [];
+  const pc = document.getElementById('pageContent');
+  pc.innerHTML = `
+    <div class="section-header">
+      <h2>🌿 My Products</h2>
+      <button class="btn btn-primary" onclick="openAddProduct()">+ Add Product</button>
+    </div>
+    ${lowStock.length ? `<div style="background:var(--earth100);border:1px solid var(--earth200);border-radius:var(--r);padding:12px 16px;margin-bottom:16px;font-size:.85rem;color:var(--earth600)">⚠️ <strong>${lowStock.length} product(s)</strong> are running low on stock: ${lowStock.map(p=>p.name).join(', ')}</div>` : ''}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${products.length ? products.map(p=>`
+          <tr>
+            <td>
+              <div style="font-weight:600">${p.name}</div>
+              ${p.is_organic?'<span class="badge badge-green" style="font-size:.68rem">🌿 Organic</span>':''}
+            </td>
+            <td>${p.category_name||'—'}</td>
+            <td style="font-weight:600;color:var(--g700)">${UI.currency(p.price)} / ${p.unit}</td>
+            <td>
+              <span style="font-weight:600;color:${p.stock<=p.min_stock_alert?'var(--red500)':'var(--gray700)'}">${p.stock}</span>
+              ${p.stock<=p.min_stock_alert?'<span class="badge badge-red" style="font-size:.65rem;margin-left:4px">Low</span>':''}
+            </td>
+            <td>${UI.badge(p.status)}</td>
+            <td style="display:flex;gap:6px">
+              <button class="btn btn-secondary btn-sm" onclick="openEditProduct('${p.id}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}','${p.name}')">Delete</button>
+            </td>
+          </tr>`).join('') :
+          '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray400)">No products yet. Add your first product!</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function openAddProduct() {
+  if (!categories.length) {
+    const r = await api.get('/categories');
+    categories = r?.data || [];
+    document.getElementById('prodCat').innerHTML = categories.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  }
+  document.getElementById('productModalTitle').textContent = 'Add New Product';
+  document.getElementById('editProductId').value = '';
+  ['prodName','prodDesc','prodPrice','prodOrig','prodStock'].forEach(id => { const el = document.getElementById(id); if (el) el.value=''; });
+  document.getElementById('prodOrganic').checked = false;
+  openModal('productModal');
+}
+
+async function openEditProduct(id) {
+  if (!categories.length) {
+    const r = await api.get('/categories');
+    categories = r?.data || [];
+    document.getElementById('prodCat').innerHTML = categories.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  }
+  const res = await api.get(`/products/${id}`);
+  const p   = res?.data;
+  if (!p) return;
+  document.getElementById('productModalTitle').textContent = 'Edit Product';
+  document.getElementById('editProductId').value = id;
+  document.getElementById('prodName').value  = p.name;
+  document.getElementById('prodDesc').value  = p.description||'';
+  document.getElementById('prodPrice').value = p.price;
+  document.getElementById('prodOrig').value  = p.original_price;
+  document.getElementById('prodStock').value = p.stock;
+  document.getElementById('prodUnit').value  = p.unit;
+  document.getElementById('prodCat').value   = p.category_id;
+  document.getElementById('prodOrganic').checked = !!p.is_organic;
+  openModal('productModal');
+}
+
+async function saveProduct() {
+  const id   = document.getElementById('editProductId').value;
+  const body = {
+    name:           document.getElementById('prodName').value,
+    description:    document.getElementById('prodDesc').value,
+    price:          parseFloat(document.getElementById('prodPrice').value),
+    original_price: parseFloat(document.getElementById('prodOrig').value)||undefined,
+    stock:          parseInt(document.getElementById('prodStock').value)||0,
+    unit:           document.getElementById('prodUnit').value,
+    category_id:    document.getElementById('prodCat').value,
+    is_organic:     document.getElementById('prodOrganic').checked
+  };
+  const res = id ? await api.put(`/products/${id}`, body) : await api.post('/products', body);
+  if (res?.success) { Toast.show(id?'Product updated!':'Product added!', 'success'); closeModal('productModal'); renderProducts(); }
+  else Toast.show(res?.message||'Failed', 'error');
+}
+
+async function deleteProduct(id, name) {
+  if (!confirm(`Remove "${name}" from your store?`)) return;
+  const res = await api.delete(`/products/${id}`);
+  Toast.show(res?.success?'Product removed':'Failed', res?.success?'success':'error');
+  if (res?.success) renderProducts();
+}
+
+// ── ANALYTICS ─────────────────────────────────────────────────────────────
+async function renderAnalytics() {
+  const res = await api.get('/analytics/seller');
+  const { summary={}, topProducts=[], salesByDay=[] } = res?.data || {};
+  const pc  = document.getElementById('pageContent');
+  pc.innerHTML = `
+    <h2 style="margin-bottom:20px">📈 Analytics</h2>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-icon si-green">📦</div><div><div class="stat-value">${summary.totalOrders||0}</div><div class="stat-label">Total Orders</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-yellow">💰</div><div><div class="stat-value">${UI.currency(summary.totalRevenue||0)}</div><div class="stat-label">Total Revenue</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-red">⏳</div><div><div class="stat-value">${summary.pendingOrders||0}</div><div class="stat-label">Pending Orders</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-blue">🌿</div><div><div class="stat-value">${summary.activeProducts||0}</div><div class="stat-label">Active Products</div></div></div>
+    </div>
+    <div class="grid-2">
+      <div class="chart-card"><div class="chart-title">📊 Orders (7 Days)</div><canvas id="salesChart" width="320" height="180"></canvas></div>
+      <div class="chart-card">
+        <div class="chart-title">🏆 Top Products by Sales</div>
+        ${topProducts.map((p,i)=>`
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;font-size:.83rem;margin-bottom:3px"><span>${i+1}. ${p.name}</span><span style="font-weight:600">${p.total_sold} sold</span></div>
+            <div style="background:var(--gray100);border-radius:4px;height:6px"><div style="background:var(--g500);height:6px;border-radius:4px;width:${Math.min(100,(p.total_sold/Math.max(...topProducts.map(x=>x.total_sold),1))*100)}%"></div></div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  if (salesByDay.length) {
+    const labels = salesByDay.map(d=>d.date.slice(5));
+    drawBar('salesChart', labels, salesByDay.map(d=>d.orders||0), '#4ade80');
+  }
+}
+
+// ── PROFILE ───────────────────────────────────────────────────────────────
+async function renderProfile() {
+  const res = await api.get('/auth/profile');
+  const { user:u, profile } = res?.data || {};
+  const pc  = document.getElementById('pageContent');
+  pc.innerHTML = `
+    <div style="max-width:520px">
+      <h2 style="margin-bottom:20px">👤 Profile</h2>
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+          <div style="width:56px;height:56px;background:linear-gradient(135deg,var(--purple500),var(--g600));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;font-weight:700">${u?.name?.charAt(0)}</div>
+          <div><div style="font-weight:700">${u?.name}</div><div style="font-size:.78rem;color:var(--purple500)">Seller</div>${profile?`<div style="font-size:.78rem;color:var(--gray500)">🏪 ${profile.store_name}</div>`:''}</div>
+        </div>
+        <div class="form-group"><label class="form-label">Name</label><input type="text" id="profName" class="form-control" value="${u?.name||''}"></div>
+        <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="profPhone" class="form-control" value="${u?.phone||''}"></div>
+        <div class="form-group"><label class="form-label">Address</label><input type="text" id="profAddress" class="form-control" value="${u?.address||''}"></div>
+        <button class="btn btn-primary btn-full" onclick="saveProfile()">Save Changes</button>
+      </div>
+      ${profile?`<div class="card card-flat"><div style="font-weight:600;margin-bottom:10px">🏪 Store Info</div><div style="font-size:.875rem;color:var(--gray600)"><div>Store: <strong>${profile.store_name}</strong></div><div>Rating: ⭐ ${profile.rating||0}</div><div>Total Sales: ${profile.total_sales||0}</div></div></div>`:''}
+    </div>`;
+}
+
+async function saveProfile() {
+  const res = await api.put('/auth/profile', { name:document.getElementById('profName').value, phone:document.getElementById('profPhone').value, address:document.getElementById('profAddress').value });
+  Toast.show(res?.success?'Saved!':res?.message||'Failed', res?.success?'success':'error');
+}
+
+switchView('dashboard');
+</script>
+</body>
+</html>
