@@ -97,9 +97,16 @@ const UI = {
             </a>`).join('')}
         </nav>
         <div class="sidebar-footer">
-          <div class="user-card">
-            <div class="user-avatar">${user.name.charAt(0).toUpperCase()}</div>
-            <div><div class="user-name">${user.name}</div><div class="user-role" style="color:${rc[role]}">${role}</div></div>
+          <div class="user-card" style="cursor:pointer" onclick="UI.openProfileModal()" title="View / edit profile">
+            <div class="user-avatar" id="sidebarAvatarEl">
+              ${user.avatar
+                ? `<img src="${user.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+                : user.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div class="user-name" id="sidebarUserNameEl">${user.name}</div>
+              <div class="user-role" style="color:${rc[role]}">${role}</div>
+            </div>
           </div>
           <button onclick="Auth.logout()" class="btn btn-outline btn-sm btn-full" style="margin-top:8px">Sign Out</button>
         </div>
@@ -152,6 +159,102 @@ const UI = {
       panel.addEventListener('click', e => e.stopPropagation());
     }
     refreshNotifBadge();
+  },
+
+  /* ── Profile Modal ────────────────────────────────────────────────────────── */
+  initProfileModal() {
+    if (!document.getElementById('profileModal')) {
+      document.body.insertAdjacentHTML('beforeend', `
+        <div class="modal-overlay" id="profileModal">
+          <div class="modal" style="max-width:440px">
+            <div class="modal-head">
+              <h3>My Profile</h3>
+              <button class="modal-close" onclick="closeModal('profileModal')">✕</button>
+            </div>
+            <div class="modal-body" id="profileModalBody">
+              <div class="loading"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>`);
+    }
+  },
+
+  async openProfileModal() {
+    if (!document.getElementById('profileModal')) this.initProfileModal();
+    openModal('profileModal');
+    const body = document.getElementById('profileModalBody');
+    body.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    const res = await api.get('/auth/profile');
+    const { user: u } = res?.data || {};
+    if (!u) { body.innerHTML = '<p style="color:var(--red500);text-align:center;padding:24px">Failed to load profile</p>'; return; }
+    const avatarHtml = u.avatar
+      ? `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`
+      : `<span>${u.name.charAt(0).toUpperCase()}</span>`;
+    body.innerHTML = `
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="position:relative;display:inline-block;cursor:pointer" onclick="document.getElementById('_avatarFileInput').click()" title="Change profile photo">
+          <div id="pmAvatarPreview" style="width:88px;height:88px;border-radius:50%;background:linear-gradient(135deg,var(--g400),var(--g600));display:flex;align-items:center;justify-content:center;font-size:2rem;color:#fff;font-weight:700;overflow:hidden;margin:0 auto;border:3px solid var(--g200)">${avatarHtml}</div>
+          <div style="position:absolute;bottom:2px;right:2px;background:var(--g600);color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;border:2px solid #fff">📷</div>
+        </div>
+        <input type="file" id="_avatarFileInput" accept="image/*" style="display:none" onchange="UI.previewAvatar(this)">
+        <div style="font-size:.72rem;color:var(--gray400);margin-top:8px">Click photo to change</div>
+      </div>
+      <div class="form-group"><label class="form-label">Full Name</label><input type="text" id="pmName" class="form-control" value="${u.name || ''}"></div>
+      <div class="form-group"><label class="form-label">Email</label><input type="text" class="form-control" value="${u.email || ''}" disabled style="opacity:.6;cursor:not-allowed"></div>
+      <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="pmPhone" class="form-control" value="${u.phone || ''}" placeholder="07X XXX XXXX"></div>
+      <div class="form-group"><label class="form-label">Address</label><input type="text" id="pmAddress" class="form-control" value="${u.address || ''}" placeholder="Your address"></div>
+      <input type="hidden" id="pmAvatarData" value="${u.avatar || ''}">
+      <button class="btn btn-primary btn-full btn-lg" id="pmSaveBtn" onclick="UI.saveProfileModal()">Save Changes</button>`;
+  },
+
+  previewAvatar(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, 128, 128);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        document.getElementById('pmAvatarData').value = dataUrl;
+        const preview = document.getElementById('pmAvatarPreview');
+        if (preview) preview.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`;
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  },
+
+  async saveProfileModal() {
+    const name    = document.getElementById('pmName')?.value.trim();
+    const phone   = document.getElementById('pmPhone')?.value.trim();
+    const address = document.getElementById('pmAddress')?.value.trim();
+    const avatar  = document.getElementById('pmAvatarData')?.value || '';
+    if (!name) { Toast.show('Name is required', 'warning'); return; }
+    const btn = document.getElementById('pmSaveBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    const res = await api.put('/auth/profile', { name, phone, address, avatar: avatar || null });
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+    if (res?.success) {
+      const stored = Auth.getUser();
+      if (stored) Auth.setUser({ ...stored, name, avatar: avatar || stored.avatar || null });
+      const avatarEl = document.getElementById('sidebarAvatarEl');
+      if (avatarEl) avatarEl.innerHTML = avatar
+        ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        : name.charAt(0).toUpperCase();
+      const nameEl = document.getElementById('sidebarUserNameEl');
+      if (nameEl) nameEl.textContent = name;
+      Toast.show('Profile updated!', 'success');
+      closeModal('profileModal');
+    } else {
+      Toast.show(res?.message || 'Failed to update', 'error');
+    }
   }
 };
 

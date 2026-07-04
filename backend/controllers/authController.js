@@ -56,7 +56,7 @@ exports.login = (req, res) => {
 };
 
 exports.getProfile = (req, res) => {
-  const user = db.prepare('SELECT id,name,email,role,phone,address,status,created_at FROM users WHERE id=?').get(req.user.id);
+  const user = db.prepare('SELECT id,name,email,role,phone,address,avatar,status,created_at FROM users WHERE id=?').get(req.user.id);
   if (!user) return res.status(404).json({ success: false, message: 'Not found' });
   let profile = null;
   if (user.role === 'vendor')  profile = db.prepare('SELECT * FROM vendor_profiles  WHERE user_id=?').get(user.id);
@@ -66,7 +66,8 @@ exports.getProfile = (req, res) => {
 };
 
 exports.updateProfile = (req, res) => {
-  const { name, phone, address } = req.body;
-  db.prepare('UPDATE users SET name=?,phone=?,address=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(name, phone, address, req.user.id);
+  const { name, phone, address, avatar } = req.body;
+  db.prepare('UPDATE users SET name=?,phone=?,address=?,avatar=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
+    .run(name, phone, address, avatar || null, req.user.id);
   res.json({ success: true, message: 'Profile updated' });
 };
