@@ -71,28 +71,30 @@ async function seed() {
   const grainId = cats[2].id;
   const herbId  = cats[3].id;
 
+  const img = id => `https://images.unsplash.com/photo-${id}?w=400&h=300&q=80&auto=format&fit=crop`;
+
   // ── Products ───────────────────────────────────────────
   const prods = [
-    { name:'Organic Tomatoes',  price:180, orig:220, stock:150, cat:vegId,   unit:'kg',    organic:1, featured:1, desc:'Fresh organic tomatoes from Green Valley Farm' },
-    { name:'Green Cabbage',     price:80,  orig:100, stock:200, cat:vegId,   unit:'kg',    organic:0, featured:0, desc:'Crisp farm-fresh cabbage' },
-    { name:'Carrots',           price:120, orig:150, stock:180, cat:vegId,   unit:'kg',    organic:1, featured:1, desc:'Sweet organic carrots from hill country' },
-    { name:'Leeks',             price:95,  orig:120, stock:160, cat:vegId,   unit:'kg',    organic:0, featured:0, desc:'Fresh leeks from Nuwara Eliya' },
-    { name:'Bell Peppers',      price:320, orig:380, stock:90,  cat:vegId,   unit:'kg',    organic:1, featured:1, desc:'Colorful organic bell peppers' },
-    { name:'Ripe Bananas',      price:90,  orig:110, stock:300, cat:fruitId, unit:'dozen', organic:0, featured:1, desc:'Sweet ripe bananas, locally grown' },
-    { name:'Mangoes',           price:350, orig:400, stock:120, cat:fruitId, unit:'kg',    organic:1, featured:1, desc:'Premium Willard mangoes' },
-    { name:'Pineapple',         price:200, orig:250, stock:80,  cat:fruitId, unit:'piece', organic:0, featured:0, desc:'Juicy fresh pineapples' },
-    { name:'Papaya',            price:150, orig:180, stock:60,  cat:fruitId, unit:'piece', organic:1, featured:0, desc:'Ripe organic papaya' },
-    { name:'Samba Rice',        price:220, orig:250, stock:500, cat:grainId, unit:'kg',    organic:0, featured:1, desc:'Premium quality Samba rice' },
-    { name:'Red Rice',          price:190, orig:210, stock:400, cat:grainId, unit:'kg',    organic:1, featured:0, desc:'Traditional red rice, high nutrition' },
-    { name:'Green Gram',        price:280, orig:320, stock:200, cat:grainId, unit:'kg',    organic:1, featured:0, desc:'Fresh green gram / mung beans' },
-    { name:'Cinnamon',          price:450, orig:500, stock:60,  cat:herbId,  unit:'100g',  organic:1, featured:1, desc:'True Ceylon cinnamon, premium grade' },
-    { name:'Turmeric Powder',   price:280, orig:320, stock:100, cat:herbId,  unit:'250g',  organic:1, featured:0, desc:'Pure organic turmeric powder' },
-    { name:'Curry Leaves',      price:60,  orig:80,  stock:150, cat:herbId,  unit:'bunch', organic:0, featured:0, desc:'Fresh aromatic curry leaves' },
+    { name:'Organic Tomatoes',  price:180, orig:220, stock:150, cat:vegId,   unit:'kg',    organic:1, featured:1, desc:'Fresh organic tomatoes from Green Valley Farm', image: img('1546470427-e2e15c78cfde') },
+    { name:'Green Cabbage',     price:80,  orig:100, stock:200, cat:vegId,   unit:'kg',    organic:0, featured:0, desc:'Crisp farm-fresh cabbage',                      image: img('1594282486552-05b4d80fbb9f') },
+    { name:'Carrots',           price:120, orig:150, stock:180, cat:vegId,   unit:'kg',    organic:1, featured:1, desc:'Sweet organic carrots from hill country',        image: img('1447175008436-054170c2e979') },
+    { name:'Leeks',             price:95,  orig:120, stock:160, cat:vegId,   unit:'kg',    organic:0, featured:0, desc:'Fresh leeks from Nuwara Eliya',                  image: img('1598511757337-fe2cafc31ba4') },
+    { name:'Bell Peppers',      price:320, orig:380, stock:90,  cat:vegId,   unit:'kg',    organic:1, featured:1, desc:'Colorful organic bell peppers',                  image: img('1563565375-f3fdfdbefa83') },
+    { name:'Ripe Bananas',      price:90,  orig:110, stock:300, cat:fruitId, unit:'dozen', organic:0, featured:1, desc:'Sweet ripe bananas, locally grown',              image: img('1571771894821-ce9b6c11b08e') },
+    { name:'Mangoes',           price:350, orig:400, stock:120, cat:fruitId, unit:'kg',    organic:1, featured:1, desc:'Premium Willard mangoes',                        image: img('1553279768-865429fa0078') },
+    { name:'Pineapple',         price:200, orig:250, stock:80,  cat:fruitId, unit:'piece', organic:0, featured:0, desc:'Juicy fresh pineapples',                         image: img('1550258987-190a2d41a8ba') },
+    { name:'Papaya',            price:150, orig:180, stock:60,  cat:fruitId, unit:'piece', organic:1, featured:0, desc:'Ripe organic papaya',                            image: img('1526318896980-cf78c088247c') },
+    { name:'Samba Rice',        price:220, orig:250, stock:500, cat:grainId, unit:'kg',    organic:0, featured:1, desc:'Premium quality Samba rice',                    image: img('1586201375761-83865001e31c') },
+    { name:'Red Rice',          price:190, orig:210, stock:400, cat:grainId, unit:'kg',    organic:1, featured:0, desc:'Traditional red rice, high nutrition',           image: img('1559847844-5315695dadae') },
+    { name:'Green Gram',        price:280, orig:320, stock:200, cat:grainId, unit:'kg',    organic:1, featured:0, desc:'Fresh green gram / mung beans',                  image: img('1612187703882-3dda8e6f2e0c') },
+    { name:'Cinnamon',          price:450, orig:500, stock:60,  cat:herbId,  unit:'100g',  organic:1, featured:1, desc:'True Ceylon cinnamon, premium grade',            image: img('1601050690597-df0568f70950') },
+    { name:'Turmeric Powder',   price:280, orig:320, stock:100, cat:herbId,  unit:'250g',  organic:1, featured:0, desc:'Pure organic turmeric powder',                   image: img('1615485500834-bc10199bc727') },
+    { name:'Curry Leaves',      price:60,  orig:80,  stock:150, cat:herbId,  unit:'bunch', organic:0, featured:0, desc:'Fresh aromatic curry leaves',                    image: img('1596040033229-a9821ebd058d') },
   ];
-  const insP = db.prepare(`INSERT INTO products (id,seller_id,vendor_id,category_id,name,description,price,original_price,unit,stock,is_organic,is_featured,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'active')`);
+  const insP = db.prepare(`INSERT INTO products (id,seller_id,vendor_id,category_id,name,description,price,original_price,unit,stock,is_organic,is_featured,images,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'active')`);
   const prodIds = prods.map(p => {
     const id = uuidv4();
-    insP.run(id, sellerId, vendorId, p.cat, p.name, p.desc, p.price, p.orig, p.unit, p.stock, p.organic, p.featured);
+    insP.run(id, sellerId, vendorId, p.cat, p.name, p.desc, p.price, p.orig, p.unit, p.stock, p.organic, p.featured, JSON.stringify([p.image]));
     return id;
   });
 

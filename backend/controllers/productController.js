@@ -29,11 +29,12 @@ exports.getById = (req, res) => {
 };
 
 exports.create = (req, res) => {
-  const { name, description, price, original_price, unit, stock, category_id, is_organic, vendor_id } = req.body;
+  const { name, description, price, original_price, unit, stock, category_id, is_organic, vendor_id, image_url } = req.body;
   if (!name || !price || !category_id) return res.status(400).json({ success:false, message:'Name, price, category required' });
   const id = uuidv4();
-  db.prepare(`INSERT INTO products (id,seller_id,vendor_id,category_id,name,description,price,original_price,unit,stock,is_organic,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,'active')`)
-    .run(id, req.user.id, vendor_id||null, category_id, name, description||'', price, original_price||price, unit||'kg', stock||0, is_organic?1:0);
+  const images = JSON.stringify(image_url ? [image_url] : []);
+  db.prepare(`INSERT INTO products (id,seller_id,vendor_id,category_id,name,description,price,original_price,unit,stock,is_organic,images,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'active')`)
+    .run(id, req.user.id, vendor_id||null, category_id, name, description||'', price, original_price||price, unit||'kg', stock||0, is_organic?1:0, images);
   res.status(201).json({ success:true, message:'Product created', data:{ id } });
 };
 
@@ -42,10 +43,12 @@ exports.update = (req, res) => {
   if (!p) return res.status(404).json({ success:false, message:'Not found' });
   if (req.user.role!=='admin' && p.seller_id!==req.user.id)
     return res.status(403).json({ success:false, message:'Not authorized' });
-  const { name, description, price, original_price, unit, stock, is_organic, status } = req.body;
-  db.prepare(`UPDATE products SET name=?,description=?,price=?,original_price=?,unit=?,stock=?,is_organic=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+  const { name, description, price, original_price, unit, stock, is_organic, status, image_url } = req.body;
+  let images = p.images;
+  if (image_url !== undefined) images = JSON.stringify(image_url ? [image_url] : []);
+  db.prepare(`UPDATE products SET name=?,description=?,price=?,original_price=?,unit=?,stock=?,is_organic=?,images=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
     .run(name||p.name, description||p.description, price||p.price, original_price||p.original_price,
-         unit||p.unit, stock!==undefined?stock:p.stock, is_organic!==undefined?(is_organic?1:0):p.is_organic, status||p.status, req.params.id);
+         unit||p.unit, stock!==undefined?stock:p.stock, is_organic!==undefined?(is_organic?1:0):p.is_organic, images, status||p.status, req.params.id);
   res.json({ success:true, message:'Product updated' });
 };
 

@@ -38,6 +38,7 @@
           <select id="prodUnit" class="form-control"><option value="kg">kg</option><option value="g">g</option><option value="piece">piece</option><option value="bunch">bunch</option><option value="dozen">dozen</option><option value="100g">100g</option><option value="250g">250g</option><option value="500g">500g</option></select>
         </div>
       </div>
+      <div class="form-group"><label class="form-label">Product Image URL (optional)</label><input type="url" id="prodImage" class="form-control" placeholder="https://example.com/image.jpg"></div>
       <label style="display:flex;align-items:center;gap:8px;font-size:.875rem;cursor:pointer;margin-bottom:16px"><input type="checkbox" id="prodOrganic"> Mark as Organic 🌿</label>
       <button class="btn btn-primary btn-full" onclick="saveProduct()">Save Product</button>
     </div>
@@ -249,7 +250,7 @@ async function openAddProduct() {
   }
   document.getElementById('productModalTitle').textContent = 'Add New Product';
   document.getElementById('editProductId').value = '';
-  ['prodName','prodDesc','prodPrice','prodOrig','prodStock'].forEach(id => { const el = document.getElementById(id); if (el) el.value=''; });
+  ['prodName','prodDesc','prodPrice','prodOrig','prodStock','prodImage'].forEach(id => { const el = document.getElementById(id); if (el) el.value=''; });
   document.getElementById('prodOrganic').checked = false;
   openModal('productModal');
 }
@@ -273,11 +274,14 @@ async function openEditProduct(id) {
   document.getElementById('prodUnit').value  = p.unit;
   document.getElementById('prodCat').value   = p.category_id;
   document.getElementById('prodOrganic').checked = !!p.is_organic;
+  let existImgs = []; try { existImgs = JSON.parse(p.images||'[]'); } catch {}
+  document.getElementById('prodImage').value = existImgs[0] || '';
   openModal('productModal');
 }
 
 async function saveProduct() {
   const id   = document.getElementById('editProductId').value;
+  const imgUrl = document.getElementById('prodImage').value.trim();
   const body = {
     name:           document.getElementById('prodName').value,
     description:    document.getElementById('prodDesc').value,
@@ -286,7 +290,8 @@ async function saveProduct() {
     stock:          parseInt(document.getElementById('prodStock').value)||0,
     unit:           document.getElementById('prodUnit').value,
     category_id:    document.getElementById('prodCat').value,
-    is_organic:     document.getElementById('prodOrganic').checked
+    is_organic:     document.getElementById('prodOrganic').checked,
+    image_url:      imgUrl || undefined
   };
   const res = id ? await api.put(`/products/${id}`, body) : await api.post('/products', body);
   if (res?.success) { Toast.show(id?'Product updated!':'Product added!', 'success'); closeModal('productModal'); renderProducts(); }

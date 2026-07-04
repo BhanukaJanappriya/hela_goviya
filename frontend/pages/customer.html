@@ -125,12 +125,15 @@ async function renderShop(search='', category='', organic='') {
 
 function renderProductCard(p) {
   const disc = p.original_price > p.price ? Math.round((1-p.price/p.original_price)*100) : 0;
+  let imgs = [];
+  try { imgs = JSON.parse(p.images || '[]'); } catch {}
   return `
     <div class="product-card" onclick="viewProduct('${p.id}')">
       <div class="product-img">
         ${p.is_organic ? '<span class="organic-tag">🌿 Organic</span>' : ''}
         ${disc > 0 ? `<span class="discount-tag">-${disc}%</span>` : ''}
         <span>${UI.catEmoji(p.category_name?.toLowerCase())}</span>
+        ${imgs[0] ? `<img src="${imgs[0]}" alt="${p.name}" onerror="this.remove()">` : ''}
       </div>
       <div class="product-info">
         <div class="product-cat">${p.category_icon||'🌿'} ${p.category_name||''}</div>
@@ -153,8 +156,13 @@ async function viewProduct(id) {
   const p   = res.data;
   document.getElementById('productModalTitle').textContent = p.name;
   const disc = p.original_price > p.price ? Math.round((1-p.price/p.original_price)*100) : 0;
+  let detailImgs = [];
+  try { detailImgs = JSON.parse(p.images || '[]'); } catch {}
   document.getElementById('productModalBody').innerHTML = `
-    <div style="background:linear-gradient(135deg,var(--g100),var(--g200));border-radius:12px;height:140px;display:flex;align-items:center;justify-content:center;font-size:4rem;margin-bottom:16px">${UI.catEmoji(p.category_name?.toLowerCase())}</div>
+    <div style="background:linear-gradient(135deg,var(--g100),var(--g200));border-radius:12px;height:200px;display:flex;align-items:center;justify-content:center;font-size:4rem;margin-bottom:16px;overflow:hidden;position:relative">
+      <span>${UI.catEmoji(p.category_name?.toLowerCase())}</span>
+      ${detailImgs[0] ? `<img src="${detailImgs[0]}" alt="${p.name}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:12px">` : ''}
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       ${p.is_organic ? '<span class="badge badge-green">🌿 Organic</span>' : ''}
       ${disc>0 ? `<span class="badge badge-yellow">-${disc}% OFF</span>` : ''}
