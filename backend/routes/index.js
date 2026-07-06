@@ -129,23 +129,25 @@ router.get('/admin/drivers', authenticate, authorize('admin'), adm.getAvailableD
 // =====================
 router.post('/reviews', authenticate, authorize('customer'), (req, res) => {
   const { product_id, seller_id, order_id, rating, comment } = req.body;
+  if (!rating || rating < 1 || rating > 5)
+    return res.status(400).json({ success: false, message: 'Rating must be 1–5' });
+  const existing = order_id
+    ? db.prepare('SELECT id FROM reviews WHERE order_id=? AND customer_id=?').get(order_id, req.user.id)
+    : null;
+  if (existing)
+    return res.status(409).json({ success: false, message: 'You have already reviewed this order' });
+  db.prepare('INSERT INTO reviews (id,customer_id,product_id,seller_id,order_id,rating,comment) VALUES (?,?,?,?,?,?,?)')
+    .run(uuidv4(), req.user.id, product_id || null, seller_id || null, order_id || null, rating, comment || null);
+  res.status(201).json({ success: true, message: 'Review submitted' });
+});
 
-  db.prepare(
-    'INSERT INTO reviews (id,customer_id,product_id,seller_id,order_id,rating,comment) VALUES (?,?,?,?,?,?,?)'
-  ).run(
-    uuidv4(),
-    req.user.id,
-    product_id || null,
-    seller_id || null,
-    order_id || null,
-    rating,
-    comment || null
-  );
-
-  res.status(201).json({
-    success: true,
-    message: 'Review submitted'
-  });
+router.post('/reviews/site', authenticate, (req, res) => {
+  const { rating, comment } = req.body;
+  if (!rating || rating < 1 || rating > 5)
+    return res.status(400).json({ success: false, message: 'Rating must be 1–5' });
+  db.prepare('INSERT INTO site_ratings (id,user_id,rating,comment) VALUES (?,?,?,?)')
+    .run(uuidv4(), req.user.id, rating, comment || null);
+  res.status(201).json({ success: true, message: 'Thank you for your feedback!' });
 });
 
 // =====================

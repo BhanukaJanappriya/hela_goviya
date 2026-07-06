@@ -182,6 +182,14 @@ class DatabaseSingleton {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS site_ratings (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+        comment TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
       CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
       CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);

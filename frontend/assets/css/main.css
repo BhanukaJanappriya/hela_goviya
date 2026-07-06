@@ -267,6 +267,25 @@ tr:last-child td{border-bottom:none}
 .page-enter{animation:pageIn .25s ease}
 @keyframes pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
+/* ── Star Rating ────────────────────────────────────────────────────────────── */
+.star-row{display:flex;gap:4px;margin:6px 0}
+.star-btn{font-size:1.8rem;color:var(--gray300);cursor:pointer;transition:color .1s,transform .12s;user-select:none;line-height:1}
+.star-btn.active{color:#f59e0b}
+.star-btn.hover{color:#fbbf24;transform:scale(1.18)}
+
+/* ── Site Rating Popup ──────────────────────────────────────────────────────── */
+.site-rating-popup{position:fixed;bottom:28px;left:28px;z-index:8000;opacity:0;pointer-events:none;transform:translateY(20px);transition:opacity .35s,transform .35s}
+.site-rating-popup.show{opacity:1;pointer-events:all;transform:translateY(0)}
+.site-rating-card{background:var(--white);border-radius:var(--r-lg);box-shadow:var(--shadow-xl);padding:22px 22px 18px;width:288px;border:1px solid var(--gray100);position:relative}
+.site-rating-close{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--gray400);cursor:pointer;font-size:1.1rem;line-height:1;padding:2px}
+.site-rating-close:hover{color:var(--gray700)}
+.site-rating-emoji{font-size:2rem;margin-bottom:6px}
+.site-rating-card h4{font-size:.95rem;font-weight:700;color:var(--gray800);margin-bottom:3px}
+.site-rating-card p{font-size:.78rem;color:var(--gray500);margin-bottom:10px;line-height:1.5}
+.site-rating-card .star-btn{font-size:2rem}
+.site-rating-card textarea{width:100%;border:1.5px solid var(--gray200);border-radius:var(--r);padding:8px 10px;font-size:.82rem;font-family:var(--font-body);outline:none;resize:none;margin-top:10px;transition:border-color .2s}
+.site-rating-card textarea:focus{border-color:var(--g400)}
+
 /* ── Scrollbar ──────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:var(--gray100)}

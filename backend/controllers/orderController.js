@@ -51,7 +51,11 @@ exports.placeOrder = (req, res) => {
 
 exports.getMyOrders = (req, res) => {
   const orders = db.prepare(`SELECT o.*,u.name as seller_name FROM orders o LEFT JOIN users u ON o.seller_id=u.id WHERE o.customer_id=? ORDER BY o.created_at DESC`).all(req.user.id);
-  const result  = orders.map(o => ({ ...o, items: db.prepare(`SELECT oi.*,p.name as product_name,p.unit FROM order_items oi JOIN products p ON oi.product_id=p.id WHERE oi.order_id=?`).all(o.id) }));
+  const result  = orders.map(o => ({
+    ...o,
+    items:    db.prepare(`SELECT oi.*,p.name as product_name,p.unit FROM order_items oi JOIN products p ON oi.product_id=p.id WHERE oi.order_id=?`).all(o.id),
+    reviewed: !!db.prepare(`SELECT id FROM reviews WHERE order_id=? AND customer_id=? LIMIT 1`).get(o.id, req.user.id)
+  }));
   res.json({ success:true, data:result });
 };
 

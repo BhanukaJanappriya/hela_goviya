@@ -64,6 +64,42 @@
   </div>
 </div>
 
+<!-- Review Modal -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head"><h3>⭐ Leave a Review</h3><button class="modal-close" onclick="closeModal('reviewModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="reviewOrderId">
+      <div id="reviewOrderInfo" style="background:var(--g50);border-radius:var(--r);padding:10px 14px;margin-bottom:18px;font-size:.83rem;color:var(--gray600)"></div>
+      <div style="margin-bottom:6px;font-size:.875rem;font-weight:600;color:var(--gray700)">Rate your experience</div>
+      <div class="star-row" id="reviewStars" data-rating="0"></div>
+      <div id="reviewStarLabel" style="font-size:.78rem;color:var(--gray400);height:18px;margin-bottom:14px"></div>
+      <div class="form-group">
+        <label class="form-label">Comment <span style="color:var(--gray400)">(optional)</span></label>
+        <textarea id="reviewComment" class="form-control" rows="3" placeholder="Tell us about your experience with this order…"></textarea>
+      </div>
+      <button class="btn btn-primary btn-full btn-lg" id="reviewSubmitBtn" onclick="submitReview()">Submit Review</button>
+    </div>
+  </div>
+</div>
+
+<!-- Site Rating Popup -->
+<div class="site-rating-popup" id="siteRatingPopup">
+  <div class="site-rating-card">
+    <button class="site-rating-close" onclick="closeSiteRating()" title="Dismiss">✕</button>
+    <div class="site-rating-emoji">🌿</div>
+    <h4>Enjoying Hela Goviya?</h4>
+    <p>Your order is confirmed! How would you rate your experience so far?</p>
+    <div class="star-row" id="siteStars" data-rating="0"></div>
+    <div id="siteStarLabel" style="font-size:.78rem;color:var(--gray400);height:16px"></div>
+    <textarea id="siteRatingComment" rows="2" placeholder="Any feedback? (optional)"></textarea>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-ghost btn-sm" onclick="closeSiteRating()">Skip</button>
+      <button class="btn btn-primary btn-sm" style="flex:1" onclick="submitSiteRating()">Submit</button>
+    </div>
+  </div>
+</div>
+
 <script src="/assets/js/api.js"></script>
 <script>
 const user = Auth.requireAuth(['customer']);
@@ -296,6 +332,7 @@ async function placeOrder() {
     closeModal('checkoutModal');
     updateCartBadge();
     switchView('orders');
+    showSiteRatingPopup();
   } else {
     Toast.show(res?.message || 'Order failed', 'error');
   }
@@ -319,7 +356,8 @@ async function renderOrders() {
           <span class="order-amount">${UI.currency(o.final_amount)}</span>
           <div style="display:flex;gap:8px">
             <button class="btn btn-secondary btn-sm" onclick="trackOrder('${o.id}')">Track Order</button>
-            ${o.status==='delivered'?`<button class="btn btn-outline btn-sm" onclick="openReview('${o.id}')">Leave Review</button>`:''}
+            ${o.status==='delivered' && !o.reviewed ? `<button class="btn btn-outline btn-sm" onclick="openReview('${o.id}','${o.seller_id}','${o.order_number}')">⭐ Leave Review</button>` : ''}
+            ${o.reviewed ? `<span class="badge badge-yellow">⭐ Reviewed</span>` : ''}
           </div>
         </div>
       </div>`).join('') :
@@ -392,8 +430,105 @@ async function saveProfile() {
   Toast.show(res?.success ? 'Profile updated!' : res?.message||'Failed', res?.success?'success':'error');
 }
 
-function openReview(orderId) {
-  Toast.show('Review feature: rate 1-5 stars and submit comment via /api/reviews', 'info');
+// ── STAR HELPERS ──────────────────────────────────────────────────────────────
+const STAR_LABELS = ['','Terrible','Poor','OK','Good','Excellent'];
+
+function buildStars(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.dataset.rating = '0';
+  el.innerHTML = [1,2,3,4,5].map(n =>
+    `<span class="star-btn" data-val="${n}" onclick="setStars('${containerId}',${n})"
+      onmouseenter="hoverStars('${containerId}',${n})"
+      onmouseleave="resetStarHover('${containerId}')">★</span>`
+  ).join('');
+}
+
+function setStars(containerId, val) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.dataset.rating = val;
+  el.querySelectorAll('.star-btn').forEach((s, i) => {
+    s.classList.toggle('active', i < val);
+    s.classList.remove('hover');
+  });
+  const labelId = containerId === 'reviewStars' ? 'reviewStarLabel' : 'siteStarLabel';
+  const labelEl = document.getElementById(labelId);
+  if (labelEl) labelEl.textContent = STAR_LABELS[val] || '';
+}
+
+function hoverStars(containerId, val) {
+  document.getElementById(containerId)?.querySelectorAll('.star-btn').forEach((s, i) => {
+    s.classList.toggle('hover', i < val);
+  });
+}
+
+function resetStarHover(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const cur = parseInt(el.dataset.rating || 0);
+  el.querySelectorAll('.star-btn').forEach((s, i) => {
+    s.classList.remove('hover');
+    s.classList.toggle('active', i < cur);
+  });
+}
+
+// ── REVIEW MODAL ──────────────────────────────────────────────────────────────
+function openReview(orderId, sellerId, orderNum) {
+  document.getElementById('reviewOrderId').value = orderId;
+  document.getElementById('reviewOrderInfo').innerHTML =
+    `Order <strong>${orderNum}</strong> — rate the seller's service and product quality`;
+  document.getElementById('reviewComment').value = '';
+  buildStars('reviewStars');
+  document.getElementById('reviewStarLabel').textContent = '';
+  openModal('reviewModal');
+}
+
+async function submitReview() {
+  const orderId = document.getElementById('reviewOrderId').value;
+  const rating  = parseInt(document.getElementById('reviewStars').dataset.rating || 0);
+  const comment = document.getElementById('reviewComment').value.trim();
+  if (!rating) { Toast.show('Please select a star rating', 'warning'); return; }
+  const btn = document.getElementById('reviewSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  const res = await api.post('/reviews', { order_id: orderId, rating, comment });
+  btn.disabled = false; btn.textContent = 'Submit Review';
+  if (res?.success) {
+    Toast.show('Thank you for your review! 🌟', 'success');
+    closeModal('reviewModal');
+    renderOrders();
+  } else {
+    Toast.show(res?.message || 'Failed to submit', 'error');
+  }
+}
+
+// ── SITE RATING POPUP ─────────────────────────────────────────────────────────
+function showSiteRatingPopup() {
+  const last = localStorage.getItem('hg_site_rated');
+  if (last && Date.now() - parseInt(last) < 12 * 60 * 60 * 1000) return;
+  buildStars('siteStars');
+  document.getElementById('siteStarLabel').textContent = '';
+  document.getElementById('siteRatingComment').value = '';
+  setTimeout(() => document.getElementById('siteRatingPopup')?.classList.add('show'), 2000);
+}
+
+async function submitSiteRating() {
+  const rating  = parseInt(document.getElementById('siteStars').dataset.rating || 0);
+  const comment = document.getElementById('siteRatingComment').value.trim();
+  if (!rating) { Toast.show('Please select a rating', 'warning'); return; }
+  const res = await api.post('/reviews/site', { rating, comment });
+  if (res?.success) {
+    localStorage.setItem('hg_site_rated', Date.now().toString());
+    closeSiteRating();
+    Toast.show('Thanks for your feedback! 🌿', 'success');
+  } else {
+    Toast.show(res?.message || 'Failed', 'error');
+  }
+}
+
+function closeSiteRating() {
+  document.getElementById('siteRatingPopup')?.classList.remove('show');
+  localStorage.setItem('hg_site_rated', Date.now().toString());
 }
 
 // ── Global search handler ─────────────────────────────────────────────────
