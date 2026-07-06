@@ -267,6 +267,10 @@ tr:last-child td{border-bottom:none}
 .page-enter{animation:pageIn .25s ease}
 @keyframes pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
+/* ── Approval Cards ─────────────────────────────────────────────────────────── */
+.approval-card{background:var(--white);border:1px solid var(--gray100);border-radius:var(--r-lg);padding:18px;box-shadow:var(--shadow-sm);transition:box-shadow .2s}
+.approval-card:hover{box-shadow:var(--shadow)}
+
 /* ── Star Rating ────────────────────────────────────────────────────────────── */
 .star-row{display:flex;gap:4px;margin:6px 0}
 .star-btn{font-size:1.8rem;color:var(--gray300);cursor:pointer;transition:color .1s,transform .12s;user-select:none;line-height:1}

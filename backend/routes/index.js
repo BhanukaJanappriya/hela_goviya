@@ -117,12 +117,14 @@ router.put('/notifications/:id/read', authenticate, (req, res) => {
 // ADMIN
 // =====================
 router.get('/admin/users', authenticate, authorize('admin'), adm.getUsers);
+router.get('/admin/users/:id', authenticate, authorize('admin'), adm.getUserById);
 router.put('/admin/users/:id/status', authenticate, authorize('admin'), adm.updateUserStatus);
 router.put('/admin/vendors/:userId/approve', authenticate, authorize('admin'), adm.approveVendor);
 router.put('/admin/drivers/:userId/approve', authenticate, authorize('admin'), adm.approveDriver);
 router.get('/admin/pending-approvals', authenticate, authorize('admin'), adm.getPendingApprovals);
 router.get('/admin/queue', authenticate, authorize('admin'), adm.getQueueStatus);
 router.get('/admin/drivers', authenticate, authorize('admin'), adm.getAvailableDrivers);
+router.get('/admin/reviews', authenticate, authorize('admin'), adm.getAdminReviews);
 
 // =====================
 // REVIEWS

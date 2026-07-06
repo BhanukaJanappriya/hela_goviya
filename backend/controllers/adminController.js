@@ -61,3 +61,22 @@ exports.getAvailableDrivers = (req, res) => {
   const drivers = db.prepare(`SELECT u.id,u.name,u.phone,dp.vehicle_type,dp.availability,dp.total_deliveries,dp.rating FROM users u JOIN driver_profiles dp ON u.id=dp.user_id WHERE dp.approval_status='approved' ORDER BY dp.availability DESC,dp.rating DESC`).all();
   res.json({ success:true, data:drivers });
 };
+
+exports.getUserById = (req, res) => {
+  const u = db.prepare('SELECT id,name,email,role,phone,address,avatar,status,created_at FROM users WHERE id=?').get(req.params.id);
+  if (!u) return res.status(404).json({ success:false, message:'User not found' });
+  let profile = null;
+  if (u.role==='vendor') profile = db.prepare('SELECT * FROM vendor_profiles WHERE user_id=?').get(u.id);
+  if (u.role==='seller') profile = db.prepare('SELECT * FROM seller_profiles WHERE user_id=?').get(u.id);
+  if (u.role==='driver') profile = db.prepare('SELECT * FROM driver_profiles WHERE user_id=?').get(u.id);
+  const orderCount = db.prepare('SELECT COUNT(*) as c FROM orders WHERE customer_id=? OR seller_id=?').get(u.id, u.id)?.c||0;
+  res.json({ success:true, data:{ ...u, profile, orderCount } });
+};
+
+exports.getAdminReviews = (req, res) => {
+  const siteRatings      = db.prepare(`SELECT sr.*,u.name as user_name FROM site_ratings sr JOIN users u ON sr.user_id=u.id ORDER BY sr.created_at DESC LIMIT 20`).all();
+  const productReviews   = db.prepare(`SELECT r.*,u.name as customer_name,p.name as product_name FROM reviews r JOIN users u ON r.customer_id=u.id LEFT JOIN products p ON r.product_id=p.id ORDER BY r.created_at DESC LIMIT 20`).all();
+  const avgSiteRating    = db.prepare(`SELECT ROUND(AVG(rating),1) as avg, COUNT(*) as total FROM site_ratings`).get();
+  const avgProductRating = db.prepare(`SELECT ROUND(AVG(rating),1) as avg, COUNT(*) as total FROM reviews`).get();
+  res.json({ success:true, data:{ siteRatings,productReviews,avgSiteRating,avgProductRating } });
+};

@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard — Hela Goviya</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+<div class="dashboard-layout">
+  <div id="sidebarContainer"></div>
+  <div class="main-content">
+    <div id="topbarContainer"></div>
+    <div id="notifPanelContainer"></div>
+    <div class="page-content page-enter" id="pageContent"></div>
+  </div>
+</div>
+
+<!-- User Detail Modal -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-head">
+      <h3 id="userModalTitle">User Details</h3>
+      <button class="modal-close" onclick="closeModal('userModal')">✕</button>
+    </div>
+    <div class="modal-body" id="userModalBody"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<script src="/assets/js/api.js"></script>
+<script>
+const user = Auth.requireAuth(['admin']);
+if (!user) throw new Error('Not authorized');
+
+document.getElementById('sidebarContainer').innerHTML = UI.buildSidebar('admin', user, [
+  { icon:'📊', label:'Overview',  active:true, fn:"switchView('overview')" },
+  { icon:'👥', label:'Users',     fn:"switchView('users')"                 },
+  { icon:'✅', label:'Approvals', fn:"switchView('approvals')"             },
+  { icon:'📦', label:'Orders',    fn:"switchView('orders')"                },
+  { icon:'📈', label:'Analytics', fn:"switchView('analytics')"             },
+  { icon:'⭐', label:'Reviews',   fn:"switchView('reviews')"               },
+  { icon:'🚗', label:'Live Ops',  fn:"switchView('liveops')"               },
+]);
+document.getElementById('topbarContainer').innerHTML  = UI.buildTopbar('Admin', true);
+document.getElementById('notifPanelContainer').innerHTML = UI.buildNotifPanel();
+UI.initSidebar();
+UI.initNotifPanel();
+UI.initProfileModal();
+
+// Approval badge on sidebar
+(async () => {
+  const r = await api.get('/admin/pending-approvals');
+  const cnt = (r?.data?.vendors?.length||0) + (r?.data?.drivers?.length||0);
+  if (cnt) {
+    const approvalNav = document.querySelectorAll('.nav-item')[2];
+    if (approvalNav) {
+      const b = document.createElement('span');
+      b.className = 'nav-badge';
+      b.style.background = '#ef4444';
+      b.textContent = cnt;
+      approvalNav.appendChild(b);
+    }
+  }
+})();
+
+function onSearch(v) { if (currentView === 'users') renderUsers(v); }
+
+let currentView = 'overview';
+async function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pc = document.getElementById('pageContent');
+  pc.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  if (view === 'overview')  await renderOverview();
+  if (view === 'users')     await renderUsers();
+  if (view === 'approvals') await renderApprovals();
+  if (view === 'orders')    await renderOrders();
+  if (view === 'analytics') await renderAnalytics();
+  if (view === 'reviews')   await renderReviews();
+  if (view === 'liveops')   await renderLiveOps();
+}
+
+// ── OVERVIEW ──────────────────────────────────────────────────────────────────
+async function renderOverview() {
+  const res = await api.get('/analytics/admin');
+  const { summary={}, recentOrders=[], ordersByStatus=[], salesByDay=[], topProducts=[], usersByRole=[] } = res?.data || {};
+
+  const sColors = { pending:'#f59e0b',confirmed:'#3b82f6',processing:'#8b5cf6',dispatched:'#1d4ed8',delivered:'#16a34a',cancelled:'#ef4444' };
+  const rColors = ['#22c55e','#3b82f6','#f59e0b','#8b5cf6','#0d9488'];
+  const nonAdmin = usersByRole.filter(r => r.role !== 'admin');
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="section-header" style="margin-bottom:20px">
+      <div><h2>📊 Overview</h2><p style="color:var(--gray500);font-size:.875rem;margin-top:2px">Live platform summary</p></div>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom:24px">
+      <div class="stat-card">
+        <div class="stat-icon si-blue">👥</div>
+        <div><div class="stat-value">${summary.totalUsers||0}</div><div class="stat-label">Total Users</div><div class="stat-sub">+${summary.newUsersWeek||0} this week</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon si-green">📦</div>
+        <div><div class="stat-value">${summary.totalOrders||0}</div><div class="stat-label">Total Orders</div><div class="stat-sub">${summary.deliveredOrders||0} delivered</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon si-yellow">💰</div>
+        <div><div class="stat-value">${UI.currency(summary.totalRevenue||0)}</div><div class="stat-label">Revenue Earned</div><div class="stat-sub">Delivered orders only</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon si-red">⏳</div>
+        <div><div class="stat-value">${summary.pendingOrders||0}</div><div class="stat-label">Pending Orders</div><div class="stat-sub">Awaiting action</div></div>
+      </div>
+      <div class="stat-card" style="cursor:pointer" onclick="switchView('approvals')">
+        <div class="stat-icon si-purple">🔔</div>
+        <div><div class="stat-value">${(summary.pendingVendors||0)+(summary.pendingDrivers||0)}</div><div class="stat-label">Pending Approvals</div><div class="stat-sub">${summary.pendingVendors||0} vendors · ${summary.pendingDrivers||0} drivers</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon si-green">🚗</div>
+        <div><div class="stat-value">${summary.activeDrivers||0}</div><div class="stat-label">Online Drivers</div><div class="stat-sub">Available now</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon si-yellow">⭐</div>
+        <div><div class="stat-value">${summary.avgRating||'—'}</div><div class="stat-label">Avg Platform Rating</div><div class="stat-sub">${summary.totalRatings||0} total ratings</div></div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="chart-card">
+        <div class="chart-title">📈 Revenue — Last 7 Days</div>
+        <canvas id="revenueChart" width="340" height="170"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🍩 Orders by Status</div>
+        <div style="display:flex;align-items:center;gap:20px;margin-top:8px">
+          <canvas id="statusDonut" width="130" height="130" style="flex-shrink:0"></canvas>
+          <div style="font-size:.8rem;flex:1">
+            ${ordersByStatus.map(s=>`
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                <span style="width:10px;height:10px;border-radius:3px;background:${sColors[s.status]||'#9ca3af'};flex-shrink:0"></span>
+                <span style="flex:1;text-transform:capitalize;color:var(--gray600)">${s.status}</span>
+                <strong>${s.count}</strong>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card card-flat" style="padding:20px">
+        <div class="section-header"><div class="section-title">🕒 Recent Orders</div><button class="btn btn-ghost btn-sm" onclick="switchView('orders')">View All →</button></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Order</th><th>Customer</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>${recentOrders.slice(0,6).map(o=>`
+              <tr>
+                <td><div style="font-weight:600;font-size:.82rem">${o.order_number}</div><div style="font-size:.7rem;color:var(--gray400)">${UI.date(o.created_at)}</div></td>
+                <td style="font-size:.82rem">${o.customer_name||'—'}</td>
+                <td style="font-weight:600;color:var(--g700);font-size:.82rem">${UI.currency(o.final_amount)}</td>
+                <td>${UI.badge(o.status)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">👥 Users by Role</div>
+        <div style="display:flex;align-items:center;gap:20px;margin-top:8px">
+          <canvas id="roleDonut" width="130" height="130" style="flex-shrink:0"></canvas>
+          <div style="font-size:.8rem;flex:1">
+            ${nonAdmin.map((r,i)=>`
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                <span style="width:10px;height:10px;border-radius:3px;background:${rColors[i%5]};flex-shrink:0"></span>
+                <span style="flex:1;text-transform:capitalize;color:var(--gray600)">${r.role}</span>
+                <strong>${r.count}</strong>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div style="margin-top:16px;border-top:1px solid var(--gray100);padding-top:14px">
+          <div style="font-size:.82rem;font-weight:600;margin-bottom:10px">🏆 Top Products</div>
+          ${topProducts.slice(0,4).map((p,i)=>`
+            <div style="display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid var(--gray50);font-size:.78rem">
+              <span style="font-weight:700;color:var(--gray400);min-width:14px">${i+1}</span>
+              <span style="flex:1;color:var(--gray700)">${p.name}</span>
+              <span style="font-weight:600;color:var(--g700)">${p.total_sold} sold</span>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  if (salesByDay.length)    drawBar('revenueChart', salesByDay.map(d=>d.date.slice(5)), salesByDay.map(d=>d.revenue||0));
+  if (ordersByStatus.length) drawDonut('statusDonut', ordersByStatus.map(s=>s.count), ordersByStatus.map(s=>sColors[s.status]||'#9ca3af'));
+  if (nonAdmin.length)       drawDonut('roleDonut', nonAdmin.map(r=>r.count), rColors);
+}
+
+// ── USERS ─────────────────────────────────────────────────────────────────────
+async function renderUsers(search='', role='', status='') {
+  let url = '/admin/users?';
+  if (role)   url += `role=${role}&`;
+  if (status) url += `status=${status}&`;
+  const res  = await api.get(url);
+  let users  = res?.data || [];
+  if (search) {
+    const q = search.toLowerCase();
+    users = users.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  }
+  const roles    = ['','customer','seller','driver','vendor'];
+  const statuses = ['','active','inactive','suspended','pending'];
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="section-header" style="margin-bottom:20px">
+      <h2>👥 User Management</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select class="form-control" style="width:130px;padding:6px 10px;font-size:.83rem" onchange="renderUsers('',this.value,'${status}')">
+          ${roles.map(r=>`<option value="${r}" ${r===role?'selected':''}>${r||'All Roles'}</option>`).join('')}
+        </select>
+        <select class="form-control" style="width:145px;padding:6px 10px;font-size:.83rem" onchange="renderUsers('','${role}',this.value)">
+          ${statuses.map(s=>`<option value="${s}" ${s===status?'selected':''}>${s||'All Statuses'}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="background:var(--white);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);border:1px solid var(--gray100);overflow:hidden">
+      <div style="padding:12px 18px;border-bottom:1px solid var(--gray100)">
+        <span style="font-size:.82rem;color:var(--gray500)">${users.length} user${users.length!==1?'s':''} found</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Phone</th><th>Joined</th><th>Actions</th></tr></thead>
+          <tbody>${users.length ? users.map(u=>`
+            <tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--g400),var(--g600));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.85rem;flex-shrink:0;overflow:hidden">
+                    ${u.avatar ? `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">` : u.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div><div style="font-weight:600;font-size:.875rem">${u.name}</div><div style="font-size:.72rem;color:var(--gray500)">${u.email}</div></div>
+                </div>
+              </td>
+              <td><span class="badge badge-gray" style="text-transform:capitalize">${u.role}</span></td>
+              <td>${UI.badge(u.status)}</td>
+              <td style="font-size:.82rem;color:var(--gray600)">${u.phone||'—'}</td>
+              <td style="font-size:.78rem;color:var(--gray500)">${UI.date(u.created_at)}</td>
+              <td>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <button class="btn btn-secondary btn-sm" onclick="viewUser('${u.id}')">View</button>
+                  ${u.status==='active'                       ? `<button class="btn btn-danger btn-sm" onclick="setUserStatus('${u.id}','suspended','${u.name}')">Suspend</button>` : ''}
+                  ${['suspended','inactive'].includes(u.status) ? `<button class="btn btn-primary btn-sm" onclick="setUserStatus('${u.id}','active','${u.name}')">Activate</button>` : ''}
+                </div>
+              </td>
+            </tr>`).join('') :
+            '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray400)">No users found</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+async function viewUser(id) {
+  openModal('userModal');
+  document.getElementById('userModalBody').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const res = await api.get(`/admin/users/${id}`);
+  const u   = res?.data;
+  if (!u) { document.getElementById('userModalBody').innerHTML = '<p style="color:var(--red500);text-align:center;padding:20px">Failed to load</p>'; return; }
+  document.getElementById('userModalTitle').textContent = u.name;
+
+  let profileHtml = '';
+  if (u.profile) {
+    if (u.role==='vendor') profileHtml = `<div style="background:var(--earth100);border-radius:var(--r);padding:10px 14px;font-size:.82rem;margin-bottom:12px"><strong>Business:</strong> ${u.profile.business_name||'—'} &nbsp;·&nbsp; <strong>Location:</strong> ${u.profile.location||'—'} &nbsp;·&nbsp; <strong>Approval:</strong> <span style="text-transform:capitalize;font-weight:600">${u.profile.approval_status}</span></div>`;
+    if (u.role==='seller') profileHtml = `<div style="background:var(--purple100);border-radius:var(--r);padding:10px 14px;font-size:.82rem;margin-bottom:12px"><strong>Store:</strong> ${u.profile.store_name||'—'} &nbsp;·&nbsp; <strong>Rating:</strong> ⭐${u.profile.rating||0} &nbsp;·&nbsp; <strong>Total Sales:</strong> ${u.profile.total_sales||0}</div>`;
+    if (u.role==='driver') profileHtml = `<div style="background:var(--blue100);border-radius:var(--r);padding:10px 14px;font-size:.82rem;margin-bottom:12px"><strong>Vehicle:</strong> ${u.profile.vehicle_type||'—'} (${u.profile.vehicle_number||'—'}) &nbsp;·&nbsp; <strong>Deliveries:</strong> ${u.profile.total_deliveries||0} &nbsp;·&nbsp; <strong>Approval:</strong> <span style="text-transform:capitalize;font-weight:600">${u.profile.approval_status}</span></div>`;
+  }
+
+  document.getElementById('userModalBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--g400),var(--g600));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.4rem;overflow:hidden;flex-shrink:0">
+        ${u.avatar ? `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">` : u.name.charAt(0).toUpperCase()}
+      </div>
+      <div>
+        <div style="font-size:1.05rem;font-weight:700">${u.name}</div>
+        <div style="font-size:.8rem;color:var(--gray500)">${u.email}</div>
+        <div style="display:flex;gap:6px;margin-top:5px">${UI.badge(u.status)} <span class="badge badge-gray" style="text-transform:capitalize">${u.role}</span></div>
+      </div>
+    </div>
+    ${profileHtml}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;font-size:.82rem">
+      <div style="background:var(--gray50);border-radius:var(--r);padding:12px"><div style="color:var(--gray500);margin-bottom:2px">Phone</div><div style="font-weight:600">${u.phone||'—'}</div></div>
+      <div style="background:var(--gray50);border-radius:var(--r);padding:12px"><div style="color:var(--gray500);margin-bottom:2px">Address</div><div style="font-weight:600;font-size:.78rem">${u.address||'—'}</div></div>
+      <div style="background:var(--gray50);border-radius:var(--r);padding:12px"><div style="color:var(--gray500);margin-bottom:2px">Member Since</div><div style="font-weight:600">${UI.date(u.created_at)}</div></div>
+      <div style="background:var(--gray50);border-radius:var(--r);padding:12px"><div style="color:var(--gray500);margin-bottom:2px">Total Orders</div><div style="font-weight:600">${u.orderCount||0}</div></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${u.status==='active'  ? `<button class="btn btn-danger btn-sm" onclick="setUserStatus('${u.id}','suspended','${u.name}');closeModal('userModal')">🚫 Suspend Account</button>` : ''}
+      ${u.status!=='active'  ? `<button class="btn btn-primary btn-sm" onclick="setUserStatus('${u.id}','active','${u.name}');closeModal('userModal')">✓ Activate Account</button>` : ''}
+      ${u.role==='vendor'&&u.profile?.approval_status==='pending' ? `<button class="btn btn-secondary btn-sm" onclick="approveUser('${u.id}','vendor','approved');closeModal('userModal')">✓ Approve Vendor</button><button class="btn btn-danger btn-sm" onclick="approveUser('${u.id}','vendor','rejected');closeModal('userModal')">✕ Reject</button>` : ''}
+      ${u.role==='driver'&&u.profile?.approval_status==='pending' ? `<button class="btn btn-secondary btn-sm" onclick="approveUser('${u.id}','driver','approved');closeModal('userModal')">✓ Approve Driver</button><button class="btn btn-danger btn-sm" onclick="approveUser('${u.id}','driver','rejected');closeModal('userModal')">✕ Reject</button>` : ''}
+    </div>`;
+}
+
+async function setUserStatus(id, status, name) {
+  const res = await api.put(`/admin/users/${id}/status`, { status });
+  Toast.show(res?.success ? `${name} ${status}` : res?.message||'Failed', res?.success?'success':'error');
+  if (res?.success && currentView==='users') renderUsers();
+}
+
+// ── APPROVALS ─────────────────────────────────────────────────────────────────
+async function renderApprovals() {
+  const res = await api.get('/admin/pending-approvals');
+  const { vendors=[], drivers=[] } = res?.data || {};
+
+  const vendorCards = vendors.length ? vendors.map(v=>`
+    <div class="approval-card">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+        <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--earth200),var(--earth500));display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.1rem;font-weight:700;flex-shrink:0">${v.name.charAt(0)}</div>
+        <div><div style="font-weight:700;font-size:.9rem">${v.name}</div><div style="font-size:.75rem;color:var(--gray500)">${v.email}</div>${v.phone?`<div style="font-size:.75rem;color:var(--gray500)">${v.phone}</div>`:''}</div>
+      </div>
+      <div style="background:var(--gray50);border-radius:8px;padding:10px;font-size:.8rem;margin-bottom:14px">
+        <div style="margin-bottom:3px"><strong>Business:</strong> ${v.business_name||'—'}</div>
+        <div style="margin-bottom:3px"><strong>Location:</strong> ${v.location||'—'}</div>
+        <div><strong>Applied:</strong> ${UI.date(v.created_at)}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" style="flex:1" onclick="approveUser('${v.id}','vendor','approved')">✓ Approve</button>
+        <button class="btn btn-danger btn-sm" style="flex:1" onclick="approveUser('${v.id}','vendor','rejected')">✕ Reject</button>
+      </div>
+    </div>`).join('') : `<div class="empty-state" style="padding:24px"><div class="empty-icon">✅</div><p>No pending vendors</p></div>`;
+
+  const driverCards = drivers.length ? drivers.map(d=>`
+    <div class="approval-card">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+        <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--blue100),var(--blue500));display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.1rem;font-weight:700;flex-shrink:0">${d.name.charAt(0)}</div>
+        <div><div style="font-weight:700;font-size:.9rem">${d.name}</div><div style="font-size:.75rem;color:var(--gray500)">${d.email}</div>${d.phone?`<div style="font-size:.75rem;color:var(--gray500)">${d.phone}</div>`:''}</div>
+      </div>
+      <div style="background:var(--gray50);border-radius:8px;padding:10px;font-size:.8rem;margin-bottom:14px">
+        <div style="margin-bottom:3px"><strong>Vehicle:</strong> ${d.vehicle_type||'—'}</div>
+        <div style="margin-bottom:3px"><strong>Reg. No:</strong> ${d.vehicle_number||'—'}</div>
+        <div><strong>Applied:</strong> ${UI.date(d.created_at)}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" style="flex:1" onclick="approveUser('${d.id}','driver','approved')">✓ Approve</button>
+        <button class="btn btn-danger btn-sm" style="flex:1" onclick="approveUser('${d.id}','driver','rejected')">✕ Reject</button>
+      </div>
+    </div>`).join('') : `<div class="empty-state" style="padding:24px"><div class="empty-icon">✅</div><p>No pending drivers</p></div>`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="section-header" style="margin-bottom:20px">
+      <div><h2>✅ Pending Approvals</h2><p style="color:var(--gray500);font-size:.875rem">${vendors.length+drivers.length} application${vendors.length+drivers.length!==1?'s':''} awaiting review</p></div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div style="font-weight:700;font-size:.9rem;color:var(--earth600);margin-bottom:14px;display:flex;align-items:center;gap:8px">🏪 Vendor Applications <span class="badge badge-yellow">${vendors.length}</span></div>
+        <div style="display:grid;gap:14px">${vendorCards}</div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:.9rem;color:var(--blue500);margin-bottom:14px;display:flex;align-items:center;gap:8px">🚗 Driver Applications <span class="badge badge-blue">${drivers.length}</span></div>
+        <div style="display:grid;gap:14px">${driverCards}</div>
+      </div>
+    </div>`;
+}
+
+async function approveUser(userId, type, status) {
+  const url = type==='vendor' ? `/admin/vendors/${userId}/approve` : `/admin/drivers/${userId}/approve`;
+  const res = await api.put(url, { status });
+  Toast.show(res?.success ? `${type.charAt(0).toUpperCase()+type.slice(1)} ${status}!` : res?.message||'Failed', res?.success?'success':'error');
+  if (res?.success) renderApprovals();
+}
+
+// ── ORDERS ────────────────────────────────────────────────────────────────────
+async function renderOrders(status='') {
+  const url    = `/orders/all?limit=100${status?`&status=${status}`:''}`;
+  const res    = await api.get(url);
+  const orders = res?.data || [];
+  const statuses = ['','pending','confirmed','processing','dispatched','delivered','cancelled'];
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="section-header" style="margin-bottom:16px">
+      <h2>📦 All Orders</h2>
+      <span style="font-size:.82rem;color:var(--gray500)">${orders.length} orders</span>
+    </div>
+    <div class="filter-bar" style="margin-bottom:16px">
+      ${statuses.map(s=>`<span class="filter-chip ${s===status?'active':''}" onclick="renderOrders('${s}')">${s||'All'}</span>`).join('')}
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Order #</th><th>Customer</th><th>Seller</th><th>Amount</th><th>Payment</th><th>Priority</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>${orders.length ? orders.map(o=>`
+          <tr>
+            <td><div style="font-weight:700;font-size:.82rem">${o.order_number}</div>${o.is_urgent?'<span class="badge badge-red" style="font-size:.6rem">🚨 Urgent</span>':''}</td>
+            <td style="font-size:.82rem">${o.customer_name||'—'}</td>
+            <td style="font-size:.82rem">${o.seller_name||'—'}</td>
+            <td style="font-weight:600;color:var(--g700);font-size:.82rem">${UI.currency(o.final_amount)}</td>
+            <td style="font-size:.75rem;text-transform:uppercase;color:var(--gray600)">${o.payment_method||'—'}</td>
+            <td style="font-size:.78rem;text-align:center;font-weight:600">${o.priority_level||1}</td>
+            <td>${UI.badge(o.status)}</td>
+            <td style="font-size:.73rem;color:var(--gray500)">${UI.date(o.created_at)}</td>
+          </tr>`).join('') :
+          '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--gray400)">No orders found</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── ANALYTICS ─────────────────────────────────────────────────────────────────
+async function renderAnalytics(days=30) {
+  const res = await api.get(`/analytics/admin?days=${days}`);
+  const { summary={}, salesByDay=[], topProducts=[], usersByRole=[], ordersByPayment=[], ordersByStatus=[] } = res?.data || {};
+  const payColors = ['#22c55e','#3b82f6','#f59e0b','#8b5cf6','#0d9488'];
+  const sColors   = { pending:'#f59e0b',confirmed:'#3b82f6',processing:'#8b5cf6',dispatched:'#1d4ed8',delivered:'#16a34a',cancelled:'#ef4444' };
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="section-header" style="margin-bottom:20px">
+      <div><h2>📈 Analytics</h2><p style="color:var(--gray500);font-size:.875rem">Deep-dive platform data</p></div>
+      <div style="display:flex;gap:6px">
+        ${[7,14,30].map(d=>`<button class="btn ${d===days?'btn-primary':'btn-outline'} btn-sm" onclick="renderAnalytics(${d})">${d}d</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom:24px">
+      <div class="stat-card"><div class="stat-icon si-yellow">💰</div><div><div class="stat-value">${UI.currency(summary.totalRevenue||0)}</div><div class="stat-label">Total Revenue</div><div class="stat-sub">Delivered orders</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-green">📦</div><div><div class="stat-value">${summary.deliveredOrders||0}</div><div class="stat-label">Delivered Orders</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-blue">👥</div><div><div class="stat-value">${summary.totalUsers||0}</div><div class="stat-label">Total Users</div><div class="stat-sub">+${summary.newUsersWeek||0} this week</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-yellow">⭐</div><div><div class="stat-value">${summary.avgRating||'—'}</div><div class="stat-label">Avg Platform Rating</div><div class="stat-sub">${summary.totalRatings||0} ratings</div></div></div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="chart-title" style="margin-bottom:0">📊 Revenue by Day — Last ${days} Days</div>
+        <span style="font-size:.75rem;color:var(--gray400)">${salesByDay.length} data points</span>
+      </div>
+      <canvas id="bigRevenueChart" width="720" height="200" style="width:100%"></canvas>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="chart-card">
+        <div class="chart-title">🏆 Top 5 Products by Revenue</div>
+        <canvas id="topProductsChart" width="320" height="200"></canvas>
+        <div style="margin-top:14px;font-size:.78rem">
+          ${topProducts.map((p,i)=>`
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray50)">
+              <span style="color:var(--gray600)">${i+1}. ${p.name}</span>
+              <span style="font-weight:600;color:var(--g700)">${UI.currency(p.revenue)}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="chart-card" style="margin-bottom:16px">
+          <div class="chart-title">💳 Payment Methods</div>
+          <div style="display:flex;align-items:center;gap:16px;margin-top:8px">
+            <canvas id="paymentDonut" width="110" height="110" style="flex-shrink:0"></canvas>
+            <div style="font-size:.82rem;flex:1">
+              ${ordersByPayment.map((p,i)=>`
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                  <span style="width:10px;height:10px;border-radius:3px;background:${payColors[i%5]};flex-shrink:0"></span>
+                  <span style="text-transform:uppercase;flex:1;color:var(--gray600)">${p.payment_method}</span>
+                  <strong>${p.count}</strong>
+                </div>`).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">🍩 Orders by Status</div>
+          <div style="display:flex;align-items:center;gap:16px;margin-top:8px">
+            <canvas id="statusDonut2" width="110" height="110" style="flex-shrink:0"></canvas>
+            <div style="font-size:.82rem;flex:1">
+              ${ordersByStatus.map(s=>`
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                  <span style="width:10px;height:10px;border-radius:3px;background:${sColors[s.status]||'#9ca3af'};flex-shrink:0"></span>
+                  <span style="text-transform:capitalize;flex:1;color:var(--gray600)">${s.status}</span>
+                  <strong>${s.count}</strong>
+                </div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-flat" style="padding:20px">
+      <div class="chart-title">👥 User Distribution by Role</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+        ${usersByRole.map((r,i)=>`
+          <div style="background:var(--gray50);border-radius:var(--r);padding:16px 24px;text-align:center;flex:1;min-width:90px;border:1px solid var(--gray100)">
+            <div style="font-size:1.5rem;font-weight:800;color:var(--g700)">${r.count}</div>
+            <div style="font-size:.75rem;color:var(--gray500);text-transform:capitalize;margin-top:3px">${r.role}s</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  if (salesByDay.length)    drawBar('bigRevenueChart', salesByDay.map(d=>d.date.slice(5)), salesByDay.map(d=>d.revenue||0));
+  if (topProducts.length)   drawBar('topProductsChart', topProducts.map(p=>p.name.split(' ')[0]), topProducts.map(p=>p.revenue||0), '#f59e0b');
+  if (ordersByPayment.length) drawDonut('paymentDonut', ordersByPayment.map(p=>p.count), payColors);
+  if (ordersByStatus.length)  drawDonut('statusDonut2', ordersByStatus.map(s=>s.count), ordersByStatus.map(s=>sColors[s.status]||'#9ca3af'));
+}
+
+// ── REVIEWS ───────────────────────────────────────────────────────────────────
+async function renderReviews() {
+  const res = await api.get('/admin/reviews');
+  const { siteRatings=[], productReviews=[], avgSiteRating={}, avgProductRating={} } = res?.data || {};
+
+  const stars = rating => [1,2,3,4,5].map(n=>`<span style="color:${n<=Math.round(rating||0)?'#f59e0b':'var(--gray300)'}">★</span>`).join('');
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="section-header" style="margin-bottom:20px"><h2>⭐ Reviews & Ratings</h2></div>
+
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card card-flat" style="padding:28px;text-align:center">
+        <div style="font-size:.8rem;font-weight:600;color:var(--gray500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Platform Rating</div>
+        <div style="font-size:3.5rem;font-weight:800;color:var(--earth500);line-height:1">${avgSiteRating?.avg||'—'}</div>
+        <div style="font-size:1.8rem;margin:8px 0">${stars(avgSiteRating?.avg||0)}</div>
+        <div style="font-size:.82rem;color:var(--gray400)">${avgSiteRating?.total||0} site rating${avgSiteRating?.total!==1?'s':''}</div>
+      </div>
+      <div class="card card-flat" style="padding:28px;text-align:center">
+        <div style="font-size:.8rem;font-weight:600;color:var(--gray500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Product Reviews</div>
+        <div style="font-size:3.5rem;font-weight:800;color:var(--g700);line-height:1">${avgProductRating?.avg ? Number(avgProductRating.avg).toFixed(1) : '—'}</div>
+        <div style="font-size:1.8rem;margin:8px 0">${stars(avgProductRating?.avg||0)}</div>
+        <div style="font-size:.82rem;color:var(--gray400)">${avgProductRating?.total||0} product review${avgProductRating?.total!==1?'s':''}</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div style="font-weight:700;font-size:.9rem;margin-bottom:14px">💬 Recent Site Ratings</div>
+        ${siteRatings.length ? siteRatings.map(r=>`
+          <div style="background:var(--white);border:1px solid var(--gray100);border-radius:var(--r);padding:14px;margin-bottom:10px;box-shadow:var(--shadow-sm)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <div style="font-weight:600;font-size:.875rem">${r.user_name}</div>
+              <div>${stars(r.rating)}</div>
+            </div>
+            ${r.comment ? `<p style="font-size:.8rem;color:var(--gray600);margin:4px 0 0">${r.comment}</p>` : ''}
+            <div style="font-size:.72rem;color:var(--gray400);margin-top:6px">${UI.ago(r.created_at)}</div>
+          </div>`).join('') : '<div class="empty-state" style="padding:24px"><div class="empty-icon">⭐</div><p>No site ratings yet</p></div>'}
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:.9rem;margin-bottom:14px">🌿 Recent Product Reviews</div>
+        ${productReviews.length ? productReviews.map(r=>`
+          <div style="background:var(--white);border:1px solid var(--gray100);border-radius:var(--r);padding:14px;margin-bottom:10px;box-shadow:var(--shadow-sm)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <div style="font-weight:600;font-size:.875rem">${r.customer_name}</div>
+              <div>${stars(r.rating)}</div>
+            </div>
+            <div style="font-size:.75rem;color:var(--g600);margin-bottom:4px">🌿 ${r.product_name||'General Review'}</div>
+            ${r.comment ? `<p style="font-size:.8rem;color:var(--gray600);margin:0">${r.comment}</p>` : ''}
+            <div style="font-size:.72rem;color:var(--gray400);margin-top:6px">${UI.ago(r.created_at)}</div>
+          </div>`).join('') : '<div class="empty-state" style="padding:24px"><div class="empty-icon">🌿</div><p>No product reviews yet</p></div>'}
+      </div>
+    </div>`;
+}
+
+// ── LIVE OPS ──────────────────────────────────────────────────────────────────
+async function renderLiveOps() {
+  const [driversRes, pendingRes, processingRes] = await Promise.all([
+    api.get('/admin/drivers'),
+    api.get('/orders/all?status=pending&limit=20'),
+    api.get('/orders/all?status=processing&limit=20')
+  ]);
+  const drivers    = driversRes?.data  || [];
+  const pending    = pendingRes?.data  || [];
+  const processing = processingRes?.data || [];
+
+  const availDot = { online:'var(--g500)', offline:'var(--gray300)', busy:'var(--earth500)' };
+  const onlineCount = drivers.filter(d=>d.availability==='online').length;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="section-header" style="margin-bottom:20px">
+      <div><h2>🚗 Live Operations</h2><p style="color:var(--gray500);font-size:.875rem">Real-time platform status</p></div>
+      <button class="btn btn-outline btn-sm" onclick="renderLiveOps()">↻ Refresh</button>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom:24px">
+      <div class="stat-card"><div class="stat-icon si-green">🚗</div><div><div class="stat-value">${onlineCount}</div><div class="stat-label">Online Drivers</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-red">⏳</div><div><div class="stat-value">${pending.length}</div><div class="stat-label">Pending Orders</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-purple">⚙️</div><div><div class="stat-value">${processing.length}</div><div class="stat-label">In Processing</div></div></div>
+      <div class="stat-card"><div class="stat-icon si-blue">🚗</div><div><div class="stat-value">${drivers.length}</div><div class="stat-label">Total Drivers</div></div></div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div style="font-weight:700;font-size:.9rem;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          🚗 Driver Fleet <span class="badge badge-green">${onlineCount} online</span>
+        </div>
+        <div style="display:grid;gap:10px;max-height:480px;overflow-y:auto">
+          ${drivers.length ? drivers.map(d=>`
+            <div style="background:var(--white);border:1px solid var(--gray100);border-radius:var(--r);padding:14px;box-shadow:var(--shadow-sm);display:flex;align-items:center;gap:12px">
+              <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--blue100),var(--blue500));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0">${d.name.charAt(0)}</div>
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:.875rem">${d.name}</div>
+                <div style="font-size:.75rem;color:var(--gray500)">${d.vehicle_type||'—'} · ${d.total_deliveries||0} deliveries · ⭐${d.rating||0}</div>
+                ${d.phone?`<div style="font-size:.72rem;color:var(--gray400)">${d.phone}</div>`:''}
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+                <div style="width:11px;height:11px;border-radius:50%;background:${availDot[d.availability]||'var(--gray300)'}"></div>
+                <div style="font-size:.62rem;color:var(--gray400);text-transform:capitalize">${d.availability}</div>
+              </div>
+            </div>`).join('') : '<p style="color:var(--gray400);text-align:center;padding:20px">No drivers registered</p>'}
+        </div>
+      </div>
+
+      <div>
+        <div style="font-weight:700;font-size:.9rem;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          ⏳ Pending Orders <span class="badge badge-yellow">${pending.length}</span>
+        </div>
+        <div style="display:grid;gap:8px;max-height:220px;overflow-y:auto;margin-bottom:20px">
+          ${pending.length ? pending.map((o,i)=>`
+            <div class="queue-item ${o.is_urgent?'p-high':''}">
+              <div class="queue-num">#${i+1}</div>
+              <div style="flex:1;font-size:.82rem">
+                <div style="font-weight:600">${o.order_number}${o.is_urgent?' 🚨':''}</div>
+                <div style="color:var(--gray500)">${o.customer_name||'—'} · ${UI.currency(o.final_amount)}</div>
+              </div>
+              <div style="font-size:.7rem;color:var(--gray400)">${UI.ago(o.created_at)}</div>
+            </div>`).join('') : '<p style="color:var(--gray400);text-align:center;padding:12px;font-size:.82rem">No pending orders</p>'}
+        </div>
+
+        <div style="font-weight:700;font-size:.9rem;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          ⚙️ Processing <span class="badge badge-purple">${processing.length}</span>
+        </div>
+        <div style="display:grid;gap:8px;max-height:180px;overflow-y:auto">
+          ${processing.length ? processing.map((o,i)=>`
+            <div class="queue-item">
+              <div class="queue-num">#${i+1}</div>
+              <div style="flex:1;font-size:.82rem">
+                <div style="font-weight:600">${o.order_number}</div>
+                <div style="color:var(--gray500)">${o.seller_name||'—'} · ${UI.currency(o.final_amount)}</div>
+              </div>
+              ${UI.badge(o.status)}
+            </div>`).join('') : '<p style="color:var(--gray400);text-align:center;padding:12px;font-size:.82rem">No orders in processing</p>'}
+        </div>
+      </div>
+    </div>`;
+}
+
+switchView('overview');
+</script>
+</body>
+</html>
